@@ -52,6 +52,7 @@ struct vector3 {
 	float y;
 	float z;
 
+
 	vector3(int x, int y, int z) :x(x), y(y), z(z) {  };
 	vector3() {};
 	vector3 operator * (float f)
