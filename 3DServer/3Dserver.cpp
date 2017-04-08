@@ -1,4 +1,3 @@
-
 #include<WinSock2.h>
 #include<windows.h>
 #include<iostream>
@@ -9,12 +8,9 @@
 #include<queue>
 #include<vector>
 
-#define DIR_FORWARD		0x01
-#define DIR_BACKWARD	0x02
-#define DIR_UP			0x10
-#define DIR_DOWN		0x20
-#define DIR_LEFT		0x04
-#define DIR_RIGHT		0x08
+#include"protocol.h"
+#include"ServerPlayer.h"
+#include"Timer.h"
 
 #define SERVERPORT		9000
 
@@ -26,6 +22,7 @@
 
 #define		SC_POS			1
 #define		SC_PUT_PLAYER	2
+#define		SC_PUT_Bullet	3
 
 
 #define MAX_USER			10
@@ -36,25 +33,7 @@
 
 using namespace std;
 
-struct sc_packet_put_player {
-	BYTE size;
-	BYTE type;
-	WORD id;
-	int x;
-	int y;
-	int z;
 
-};
-
-struct sc_packet_pos
-{
-	BYTE size;
-	BYTE type;
-	WORD id;
-	int x;
-	int y;
-	int z;
-};
 
 void error_display(char *msg, int err_num)
 {
@@ -68,12 +47,32 @@ void error_display(char *msg, int err_num)
 	LocalFree(lpMsgBuf);
 }
 
-struct PLAYER {		//플레이어 좌표.
+struct vector3 {
 	float x;
 	float y;
 	float z;
 
+	vector3(int x, int y, int z) :x(x), y(y), z(z) {  };
+	vector3() {};
+	vector3 operator * (float f)
+	{
+		return vector3(f * x, f*y, f * z);
+	}
+
 };
+
+struct PLAYER {		//플레이어 좌표.
+
+	int x;
+	int y;
+	int z;
+
+	DWORD button;
+	vector3 lookvector;
+
+};
+
+
 
 struct Event_timer {		//타이머
 
@@ -98,7 +97,7 @@ typedef struct Overlapex {
 	WSAOVERLAPPED	original_overlap;
 	int				operation;
 	WSABUF			recv_buffer;
-	unsigned char	socket_buff[MAX_BUFFSIZE];
+	BYTE			socket_buff[MAX_BUFFSIZE];
 	int				packet_size;
 
 };
@@ -111,17 +110,23 @@ struct CLIENT {
 	Overlapex		recv_overlap;
 	int				previous_data_size;
 	mutex			vl_lock;
-	unsigned char	packet[MAX_BUFFSIZE];
+	BYTE			packet[MAX_BUFFSIZE];
 
 };
 
 CLIENT client[MAX_USER];
 CLIENT other[200];
+PLAYER bullet[100];
+
+
 bool g_isShutdown = false;
 HANDLE g_hIocp;
 CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
+
+CServerPlayer serverplayer;
+
 
 void add_timer(int obj_id, int m_sec, int event_type)
 {
@@ -129,6 +134,10 @@ void add_timer(int obj_id, int m_sec, int event_type)
 	EnterCriticalSection(&timer_lock);
 	p_queue.push(event_object);
 	LeaveCriticalSection(&timer_lock);
+
+
+
+
 }
 
 void Timer_Thread()
@@ -149,6 +158,7 @@ void Timer_Thread()
 			overlapped->operation = OP_MOVE;
 			ZeroMemory(&overlapped->original_overlap, sizeof(overlapped->original_overlap));
 			PostQueuedCompletionStatus(g_hIocp, 1, top_object.obj_id, reinterpret_cast<LPOVERLAPPED>(&overlapped));
+
 		}
 		LeaveCriticalSection(&timer_lock);
 	}
@@ -184,7 +194,7 @@ void Initialize_server()
 	for (int i = 0; i < MAX_USER; ++i)
 	{
 		client[i].recv_overlap.recv_buffer.buf = reinterpret_cast<char *>(client[i].recv_overlap.socket_buff);
-		client[i].recv_overlap.recv_buffer.len = MAX_BUFFSIZE;
+		client[i].recv_overlap.recv_buffer.len = 10000;
 		client[i].recv_overlap.operation = OP_RECV;
 
 		client[i].connected = false;
@@ -248,61 +258,81 @@ void SendPutPlayerPacket(int clients, int player)
 
 
 
+
+void player_position(PLAYER &player,unsigned char *Data)
+{
+	//cs_player_position player;//이부분 수정해야합니다.
+	//player = reinterpret_cast<unsigned char *>(&Data);
+
+	memcpy(&player, &Data, Data[0]);
+
+
+
+	cout << player.x << " " << player.y << " " << player.z << endl;
+	cout << (float)player.lookvector.x << " " << (float)player.lookvector.y << " " << (float)player.lookvector.z << endl;
+}
+
+
 void processpacket(int id, unsigned char *packet)
 {
 	//패킷 종류별로 처리가 달라진다.
 	// 0 size 1 type
+	cs_key_input key_button;
+	cs_rotate rotate;
 
-	//int dx = client[id].player.x;
-	//int dy = client[id].player.y;
-	//int dz = client[id].player.z;
+	BYTE packet_type = packet[1];
+	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
+	{
+	case 0 :	//여기서 키버튼을 받았을때 처리해줘야 한다.
+		memcpy(&key_button, packet, packet[0]);
+		//client[id].player.x = key_button.x;
+		//client[id].player.y = key_button.y;
+		//client[id].player.z = key_button.z;
+		client[id].player.button = key_button.key_button;
+		serverplayer.Move(client[id].player.button, key_button.fDistance, false);
+		
+		client[id].player.x = serverplayer.GetPosition().x;
+		client[id].player.y = serverplayer.GetPosition().y;
+		client[id].player.z = serverplayer.GetPosition().z;
+		cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
+		break;
+	case 1:		//cx cy를 받아서 로테이트 처리해야한다.
+		memcpy(&rotate, packet, packet[0]);
+		serverplayer.Rotate(rotate.cx, rotate.cy, rotate.cz);
 
-	int dx = 0;
-	int dy = 0;
-	int dz = 0;
+	/*	client[id].player.lookvector.x = serverplayer.GetLookvector().x;
+		client[id].player.lookvector.y = serverplayer.GetLookvector().y;
+		client[id].player.lookvector.z = serverplayer.GetLookvector().z;*/
 
-	unsigned char packet_type = packet[1];
+		cout << serverplayer.GetLookvector().x << " " << serverplayer.GetLookvector().y << " " << serverplayer.GetLookvector().z<<endl;
 
-	//switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
-	//{
-	//case DIR_FORWARD:		dz++; break;
-	//case DIR_BACKWARD:		dz--; break;
-	//case DIR_LEFT:			dx--; break;
-	//case DIR_RIGHT:			dx++; break;
-	//case 9:					dx++; dz++; break;
-	//case 10:				dx++; dz--; break;
-	//case 5:					dx--; dz++; break;
-	//case 6:					dx--; dz--; break;
-	//case DIR_UP:					break;
-	//case DIR_DOWN:					break;
-	//case 0:							break;
-	//
-	////default: {
-	////	cout << "Unknown Packet Type Detected!!\n";
-	////	cout << packet_type << endl;
-	////	exit(-1);
-	////}
-	//}
+		//cout << client[id].player.lookvector.x << " " << client[id].player.lookvector.y << " " << client[id].player.lookvector.z << endl;
+		break;
+	case 2:		//총을 쐈을때 처리를 해야한다.
+		break;
+	default:
+		cout << "unknow packet :" << packet[1];
+		break;
+
+	}
 
 
-	cout << (FLOAT)packet_type << endl;
+	//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
+	//cout << client[id].player.Bulletlist->x << " " << client[id].y << " " << client[id].z << endl;
 
-	//이동처리
-	client[id].player.x = (packet[1]);
 
-	sc_packet_pos pos_packet;
-	pos_packet.id = id;
-	pos_packet.size = sizeof(sc_packet_pos);
-	pos_packet.type = SC_POS;
+}
 
-	//pos_packet.x = dx;
-	//pos_packet.y = dy;
-	//pos_packet.z = dz;
+CTimer timer1;
 
-	cout << client[id].player.x << "	" << client[id].player.y << " " << client[id].player.z << endl;
+void logic_thread()
+{
+	
+	do {
+		timer1.Tick();
 
-	Sendpacket(id, reinterpret_cast<unsigned char*>(&pos_packet));
-
+		//serverplayer.Update(timer1.GetTimeElapsed());
+	} while (true);
 }
 
 void Accept_thread()
@@ -396,6 +426,9 @@ void Accept_thread()
 		}
 	}
 }
+
+
+
 void worker_Thread()
 {
 	DWORD io_size;
@@ -417,7 +450,7 @@ void worker_Thread()
 			{
 			case OP_RECV:
 			{
-				unsigned char* pBuff = overlap->socket_buff;
+				BYTE* pBuff = overlap->socket_buff;
 				int remained = io_size;
 
 				//남은 데이터 사이즈만큼 순회하면서 처리
@@ -434,7 +467,7 @@ void worker_Thread()
 					{
 						//지난번에 받은 데이터 뒷부분에 복사
 						memcpy(client[key].packet + client[key].previous_data_size, pBuff, required);
-						processpacket(key, reinterpret_cast<unsigned char *>(&client[key].packet));
+						processpacket(key, reinterpret_cast<BYTE *>(&client[key].packet));
 						remained -= required;
 						pBuff += required;
 						client[key].recv_overlap.packet_size = 0;
@@ -448,7 +481,7 @@ void worker_Thread()
 						client[key].previous_data_size += remained;
 						remained = 0;
 						pBuff++;
-					}
+					} 
 
 				}
 				DWORD flags = 0;
@@ -465,7 +498,7 @@ void worker_Thread()
 
 					if (client[i].connected == false) continue;
 					client[i].vl_lock.lock();
-					SendMovePacket(i, key - 500);
+				//	SendMovePacket(i, key - 500);
 					client[i].vl_lock.unlock();
 				}
 				add_timer(key, 1000, OP_MOVE);
@@ -487,8 +520,12 @@ void worker_Thread()
 
 int main(int argv, char* argc[])
 {
+
+	timer1.SetTimer(20);
+
 	thread* pAcceptThread;
-	thread* pTimerthread;
+	thread* pTimerThread;
+	thread* plogicThread;
 	vector<thread*> vpThread;
 
 	Initialize_server();
@@ -505,7 +542,8 @@ int main(int argv, char* argc[])
 	}
 
 	pAcceptThread = new thread(Accept_thread);
-	pTimerthread = new thread(Timer_Thread);
+	pTimerThread = new thread(Timer_Thread);
+	plogicThread = new thread(logic_thread);
 
 	while (g_isShutdown == false) {
 		Sleep(1000);
@@ -521,8 +559,12 @@ int main(int argv, char* argc[])
 	pAcceptThread->join();
 	delete pAcceptThread;
 
-	pTimerthread->join();
-	delete pTimerthread;
+	pTimerThread->join();
+	delete pTimerThread;
+
+	plogicThread->join();
+	delete plogicThread;
+
 
 	DeleteCriticalSection(&g_CriticalSection);
 	DeleteCriticalSection(&timer_lock);
