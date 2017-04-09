@@ -16,24 +16,24 @@
 
 #pragma comment(lib,"Ws2_32")
 
-#define OP_RECV				1
-#define OP_SEND				2
-#define OP_MOVE				3
+#define OP_RECV					1
+#define OP_SEND					2
+#define OP_MOVE					3
 
-#define		SC_POS			1
-#define		SC_PUT_PLAYER	2
-#define		SC_PUT_Bullet	3
+#define		SC_POS				1
+#define		SC_PUT_PLAYER		2
+#define		SC_PUT_Bullet		3
+#define		SC_REMOVE_PLAYER	4
 
+#define MAX_USER				10
 
-#define MAX_USER			10
-
-#define MAX_BUFFSIZE		4000
+#define MAX_BUFFSIZE			4000
 
 
 
 using namespace std;
 
-
+void Sendpacket(int id, void * packet);
 
 void error_display(char *msg, int err_num)
 {
@@ -136,9 +136,20 @@ void add_timer(int obj_id, int m_sec, int event_type)
 	p_queue.push(event_object);
 	LeaveCriticalSection(&timer_lock);
 
+}
+
+void SendPositionPacket(int id, int object)
+{
+	sc_packet_pos packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_POS;
+	packet.x = client[object].player.x;
+	packet.y = client[object].player.y;
+	packet.z = client[object].player.z;
 
 
-
+	Sendpacket(id, &packet);
 }
 
 void Timer_Thread()
@@ -163,24 +174,52 @@ void Timer_Thread()
 		}
 		LeaveCriticalSection(&timer_lock);
 	}
+
 }
 
-void Create_NPC()
+void Sendpacket(int id, void * packet)
 {
-	int i = 0;
-	EnterCriticalSection(&timer_lock);
-	for (auto& npc : other)
-	{
-		npc.player.x = 0;
-		npc.player.y = 0;
-		npc.player.z = 0;
+	//지역변수로 하짐라고 메모리 할당을 해줘야 한다.
+	Overlapex* send_over = new Overlapex;
+	memset(send_over, 0, sizeof(Overlapex));
+	send_over->operation = OP_SEND;
+	send_over->recv_buffer.buf = reinterpret_cast<char *>(send_over->socket_buff);
+	send_over->recv_buffer.len = reinterpret_cast<unsigned char *>(packet)[0];
+	memcpy(send_over->socket_buff, packet, reinterpret_cast<unsigned char *>(packet)[0]);
 
-		npc.id = 500 + (i++);
-		add_timer(npc.id, 1000, OP_MOVE);
+	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0, &send_over->original_overlap, NULL);
+	if ((result != 0) && (WSA_IO_PENDING != result))
+	{
+		int error_num = WSAGetLastError();
+
+		if (WSA_IO_PENDING != error_num)
+			error_display("sendpacket : wsasend", error_num);
+		while (true);
 	}
-	LeaveCriticalSection(&timer_lock);
+
 }
 
+void SendRemovePacket(int client, int object)
+{
+	sc_packet_remove_player remove_player;
+
+	remove_player.id = client;
+	remove_player.size = sizeof(remove_player);
+	remove_player.type = SC_REMOVE_PLAYER;
+
+	Sendpacket(client, &remove_player);
+}
+
+void Disconnected(int ci)
+{
+	closesocket(client[ci].sock);
+	client[ci].connected = false;
+	for (int i = 0; i < MAX_USER; i++)
+	{
+		if (client[i].connected == true)
+			SendRemovePacket(ci, i);
+	}
+}
 
 void Initialize_server()
 {
@@ -201,32 +240,10 @@ void Initialize_server()
 		client[i].connected = false;
 	}
 
-	Create_NPC();
-
 }
 
 
-void Sendpacket(int id, unsigned char* packet)
-{
-	//지역변수로 하짐라고 메모리 할당을 해줘야 한다.
-	Overlapex* send_over = new Overlapex;
-	memset(send_over, 0, sizeof(Overlapex));
-	send_over->operation = OP_SEND;
-	send_over->recv_buffer.buf = reinterpret_cast<char *>(send_over->socket_buff);
-	send_over->recv_buffer.len = packet[0];
-	memcpy(send_over->socket_buff, packet, packet[0]);
 
-	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0, &send_over->original_overlap, NULL);
-	if ((result != 0) && (WSA_IO_PENDING != result))
-	{
-		int error_num = WSAGetLastError();
-
-		if (WSA_IO_PENDING != error_num)
-			error_display("sendpacket : wsasend", error_num);
-		while (true);
-	}
-
-}
 
 void SendMovePacket(int client, int npcID)
 {
@@ -257,21 +274,6 @@ void SendPutPlayerPacket(int clients, int player)
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
 }
 
-
-
-
-void player_position(PLAYER &player,unsigned char *Data)
-{
-	//cs_player_position player;//이부분 수정해야합니다.
-	//player = reinterpret_cast<unsigned char *>(&Data);
-
-	memcpy(&player, &Data, Data[0]);
-
-
-
-	cout << player.x << " " << player.y << " " << player.z << endl;
-	cout << (float)player.lookvector.x << " " << (float)player.lookvector.y << " " << (float)player.lookvector.z << endl;
-}
 
 
 void processpacket(int id, unsigned char *packet)
@@ -320,6 +322,12 @@ void processpacket(int id, unsigned char *packet)
 
 	//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 	//cout << client[id].player.Bulletlist->x << " " << client[id].y << " " << client[id].z << endl;
+
+	for (int i = 0; i < MAX_USER; i++)
+	{
+		if (client[i].connected == true)
+			SendPositionPacket(i, id);
+	}
 
 
 }
@@ -377,15 +385,12 @@ void Accept_thread()
 			continue;
 		}
 
-		//입출력 포트와 클라이언트 연결
-		CreateIoCompletionPort(reinterpret_cast<HANDLE>(new_client), g_hIocp, new_id, 0);
-
 		cout << "Player " << new_id << " Connected " << endl;
 
 		EnterCriticalSection(&g_CriticalSection);
 		// 재활용 될 소켓이므로 초기화해주어야 한다.
-		client[new_id].sock = new_client;
 		client[new_id].connected = true;
+		client[new_id].sock = new_client;
 		client[new_id].id = new_id;
 
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
@@ -407,13 +412,29 @@ void Accept_thread()
 		put_player_packet.y = client[new_id].player.y;
 		put_player_packet.z = client[new_id].player.z;
 
+		//입출력 포트와 클라이언트 연결
+		CreateIoCompletionPort(reinterpret_cast<HANDLE>(new_client), g_hIocp, new_id, 0);
+
+
+		DWORD recv_flag = 0;
+		WSARecv(new_client, &client[new_id].recv_overlap.recv_buffer, 1,
+			NULL, &recv_flag, &client[new_id].recv_overlap.original_overlap, NULL);
+
+		SendPutPlayerPacket(new_id, new_id);
+
 		for (int i = 0; i < MAX_USER; ++i)
 		{
 			if (client[i].connected == true)
 			{
-				Sendpacket(i, reinterpret_cast<unsigned char*>(&put_player_packet));
+				if (i != new_id)
+				{
+					SendPutPlayerPacket(new_id, i);
+					SendPutPlayerPacket(i, new_id);
+				}
 			}
 		}
+
+		
 
 		DWORD flags = 0;
 		int result = WSARecv(new_client, &client[new_id].recv_overlap.recv_buffer, 1, NULL, &flags, &client[new_id].recv_overlap.original_overlap, NULL);
@@ -433,7 +454,7 @@ void Accept_thread()
 void worker_Thread()
 {
 	DWORD io_size;
-	DWORD key;
+	unsigned long long key;
 	Overlapex *overlap;
 	bool bresult;
 
@@ -443,8 +464,16 @@ void worker_Thread()
 
 		if (false == bresult)
 		{
-			//에러처리 하면된다.
+			std::cout << "Error in GQCS\n";
+			int err_no = WSAGetLastError();
+			if (err_no == 64) Disconnected(key);
+			while (true);
 		}
+		if (0 == io_size) {
+			Disconnected(key);
+			continue;
+		}
+		
 		if (overlap != NULL)
 		{
 			switch (overlap->operation)

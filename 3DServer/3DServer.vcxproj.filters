@@ -26,13 +26,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="protocol.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="ServerPlayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
