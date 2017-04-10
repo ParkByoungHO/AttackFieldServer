@@ -10,6 +10,10 @@ CServerPlayer::CServerPlayer()
 	player_move_info.m_d3dxvRight = XMFLOAT3(1.0f, 0.0f, 0.0f);
 	player_move_info.m_d3dxvUp = XMFLOAT3(0.0f, 1.0f, 0.0f);
 	player_move_info.m_d3dxvLook = XMFLOAT3(0.0f, 0.0f, 1.0f);
+
+	player_move_info.m_fPitch = 0.0f;
+	player_move_info.m_fRoll = 0.0f;
+	player_move_info.m_fYaw = 0.0f;
 }
 
 

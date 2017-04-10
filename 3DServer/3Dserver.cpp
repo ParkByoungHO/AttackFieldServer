@@ -24,6 +24,7 @@
 #define		SC_PUT_PLAYER		2
 #define		SC_PUT_Bullet		3
 #define		SC_REMOVE_PLAYER	4
+#define		SC_ROTATE			5
 
 #define MAX_USER				10
 
@@ -147,6 +148,20 @@ void SendPositionPacket(int id, int object)
 	packet.x = client[object].player.x;
 	packet.y = client[object].player.y;
 	packet.z = client[object].player.z;
+
+
+	Sendpacket(id, &packet);
+}
+
+void SendLookPacket(int id, int object)
+{
+	sc_rotate_vector packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_ROTATE;
+	packet.x = serverplayer.GetLookvector().x;
+	packet.y = serverplayer.GetLookvector().y;
+	packet.z = serverplayer.GetLookvector().z;
 
 
 	Sendpacket(id, &packet);
@@ -307,14 +322,14 @@ void processpacket(int id, unsigned char *packet)
 		client[id].player.lookvector.y = serverplayer.GetLookvector().y;
 		client[id].player.lookvector.z = serverplayer.GetLookvector().z;*/
 
-		cout << serverplayer.GetLookvector().x << " " << serverplayer.GetLookvector().y << " " << serverplayer.GetLookvector().z<<endl;
-
+		cout << serverplayer.GetLookvector().x << " " << (float)serverplayer.GetLookvector().y << " " << (float)serverplayer.GetLookvector().z<<endl;
+		
 		//cout << client[id].player.lookvector.x << " " << client[id].player.lookvector.y << " " << client[id].player.lookvector.z << endl;
 		break;
 	case 2:		//총을 쐈을때 처리를 해야한다.
 		break;
 	default:
-		cout << "unknow packet :" << packet[1];
+		cout << "unknow packet : " << (int)packet[1];
 		break;
 
 	}
@@ -326,7 +341,12 @@ void processpacket(int id, unsigned char *packet)
 	for (int i = 0; i < MAX_USER; i++)
 	{
 		if (client[i].connected == true)
+		{
+			client[i].vl_lock.lock();
 			SendPositionPacket(i, id);
+			//SendLookPacket(i, id);
+			client[i].vl_lock.unlock();
+		}
 	}
 
 

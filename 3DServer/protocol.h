@@ -7,10 +7,6 @@ struct cs_key_input {	//키버튼 받았을때
 	BYTE	size;
 	BYTE	type;
 
-	float x;
-	float y;
-	float z;
-
 	float fDistance;
 
 	DWORD key_button;
@@ -50,6 +46,18 @@ struct sc_packet_pos
 	int x;
 	int y;
 	int z;
+};
+
+struct sc_rotate_vector
+{
+	BYTE size;
+	BYTE type;
+	WORD id;
+
+	float x;
+	float y;
+	float z;
+
 };
 
 struct sc_packet_remove_player {
