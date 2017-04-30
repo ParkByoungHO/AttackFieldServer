@@ -62,7 +62,9 @@ struct sc_rotate_vector	//처리된 lookvector를 보낸다.
 	BYTE type;
 	WORD id;
 
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixIdentity();
+	float x;
+	float y;
+	float z;
 };
 
 struct sc_packet_remove_player {	//접속이 종료되면 보내는 패킷이다.

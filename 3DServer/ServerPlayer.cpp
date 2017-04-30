@@ -67,7 +67,7 @@ void CServerPlayer::Move(const XMVECTOR& d3dxvShift, bool bUpdateVelocity)
 }
 
 
-void CServerPlayer::Rotate(float x, float y, float z)
+void CServerPlayer::Rotate(float x, float y)
 {
 
 	
@@ -77,23 +77,14 @@ void CServerPlayer::Rotate(float x, float y, float z)
 		{
 			player_move_info.m_fPitch += x;
 			if (player_move_info.m_fPitch > +50) { x -= (player_move_info.m_fPitch - 50); player_move_info.m_fPitch = +50; }
-			if (player_move_info.m_fPitch < -50) { x -= (player_move_info.m_fPitch + 50); player_move_info.m_fPitch = -50; }
+			if (player_move_info.m_fPitch < -40) { x -= (player_move_info.m_fPitch + 40); player_move_info.m_fPitch = -40; }
 		}
 		if (y != 0.0f)
 		{
 			player_move_info.m_fYaw += y;
 			if (player_move_info.m_fYaw > 360.0f) player_move_info.m_fYaw -= 360.0f;
 			if (player_move_info.m_fYaw < 0.0f) player_move_info.m_fYaw += 360.0f;
-		}
-		if (z != 0.0f)
-		{
-			player_move_info.m_fRoll += z;
-			if (player_move_info.m_fRoll > +20.0f) { z -= (player_move_info.m_fRoll - 20.0f); player_move_info.m_fRoll = +20.0f; }
-			if (player_move_info.m_fRoll < -20.0f) { z -= (player_move_info.m_fRoll + 20.0f); player_move_info.m_fRoll = -20.0f; }
-		}
 
-		if (y != 0.0f)
-		{
 			mtxRotate = XMMatrixRotationAxis(XMLoadFloat3(&player_move_info.m_d3dxvUp), XMConvertToRadians(y));
 			XMStoreFloat3(&player_move_info.m_d3dxvLook, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvLook), mtxRotate));
 			XMStoreFloat3(&player_move_info.m_d3dxvRight, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvRight), mtxRotate));

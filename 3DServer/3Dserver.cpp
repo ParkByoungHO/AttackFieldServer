@@ -163,7 +163,9 @@ void SendLookPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_ROTATE;
-	packet.matrix = serverplayer[id].GetMatrix();
+	packet.x = serverplayer[id].GetLookvector().x;
+	packet.y = serverplayer[id].GetLookvector().y;
+	packet.z = serverplayer[id].GetLookvector().z;
 
 
 	Sendpacket(id, &packet);
@@ -334,7 +336,7 @@ void processpacket(int id, unsigned char *packet)
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
 		memcpy(&rotate, packet, packet[0]);
 		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
-		serverplayer[id].Rotate(rotate.cx, rotate.cy, 0);
+		serverplayer[id].Rotate(rotate.cx, rotate.cy);
 
 		for (int i = 0; i < MAX_USER; i++)
 		{

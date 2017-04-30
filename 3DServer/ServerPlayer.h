@@ -88,7 +88,7 @@ public:
 	
 	void Move(DWORD nDirection, float fDistance, bool bVelocity = false);
 	void Move(const XMVECTOR& d3dxvShift, bool bVelocity = false);
-	void Rotate(float x, float y, float z);
+	void Rotate(float x, float y);
 	void Update(float fTimeElapsed);
 	void setid(int id) { 
 		m_id = id; 
@@ -124,11 +124,8 @@ public:
 
 	XMFLOAT3& GetLookvector()
 	{
-		XMFLOAT3 temp;
-		XMStoreFloat3(&temp, GetLook());
-		return temp;
+		return player_move_info.m_d3dxvLook;
 	}
 
-	XMMATRIX& GetMatrix() { return m_mtxWorld; }
 };
 
