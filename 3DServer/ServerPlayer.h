@@ -12,8 +12,8 @@
 #define DIR_BACKWARD	0x02
 #define DIR_LEFT		0x04
 #define DIR_RIGHT		0x08
-#define DIR_UP			0x10
-#define DIR_DOWN		0x20
+//#define DIR_UP		0x10
+//#define DIR_DOWN		0x20
 
 
 using namespace DirectX;
@@ -77,14 +77,37 @@ private:
 	PLAYER_INPUT_INFO player_input_info;
 	PLAYER_MOVE_INFO player_move_info;
 
+	XMMATRIX	m_mtxWorld = XMMatrixIdentity();
+
+	int m_id;
+	
+	
 public:
 	CServerPlayer();
 	~CServerPlayer();
-
+	
 	void Move(DWORD nDirection, float fDistance, bool bVelocity = false);
 	void Move(const XMVECTOR& d3dxvShift, bool bVelocity = false);
 	void Rotate(float x, float y, float z);
 	void Update(float fTimeElapsed);
+	void setid(int id) { 
+		m_id = id; 
+
+		if (m_id % 2 == 0)
+		{
+			player_move_info.m_d3dxvPosition.x = 65;
+			player_move_info.m_d3dxvPosition.y = 2;
+			player_move_info.m_d3dxvPosition.z = 12;
+		}
+		else
+		{
+			player_move_info.m_d3dxvPosition.x = 265;
+			player_move_info.m_d3dxvPosition.y = 2;
+			player_move_info.m_d3dxvPosition.z = 230;
+		}
+	}
+
+	
 
 	XMFLOAT3 GetPosition()
 	{
@@ -105,5 +128,7 @@ public:
 		XMStoreFloat3(&temp, GetLook());
 		return temp;
 	}
+
+	XMMATRIX& GetMatrix() { return m_mtxWorld; }
 };
 

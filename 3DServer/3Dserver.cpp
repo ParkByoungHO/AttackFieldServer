@@ -103,6 +103,8 @@ typedef struct Overlapex {
 	int				packet_size;
 
 };
+
+
 //클라이언트는 확장 오버렙 구조체를 가져야 한다.
 struct CLIENT {
 	int				id;
@@ -113,6 +115,7 @@ struct CLIENT {
 	int				previous_data_size;
 	mutex			vl_lock;
 	BYTE			packet[MAX_BUFFSIZE];
+	bool			Team = false;
 
 };
 
@@ -127,7 +130,7 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-CServerPlayer serverplayer;
+CServerPlayer serverplayer[10];
 
 
 void add_timer(int obj_id, int m_sec, int event_type)
@@ -149,6 +152,7 @@ void SendPositionPacket(int id, int object)
 	packet.y = client[object].player.y;
 	packet.z = client[object].player.z;
 
+	cout << packet.x<< " " << packet.y<<" " << packet.z << endl;
 
 	Sendpacket(id, &packet);
 }
@@ -159,9 +163,7 @@ void SendLookPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_ROTATE;
-	packet.x = serverplayer.GetLookvector().x;
-	packet.y = serverplayer.GetLookvector().y;
-	packet.z = serverplayer.GetLookvector().z;
+	packet.matrix = serverplayer[id].GetMatrix();
 
 
 	Sendpacket(id, &packet);
@@ -301,32 +303,50 @@ void processpacket(int id, unsigned char *packet)
 	BYTE packet_type = packet[1];
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
-	case 0 :	//여기서 키버튼을 받았을때 처리해줘야 한다.
+	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
 		memcpy(&key_button, packet, packet[0]);
 		//client[id].player.x = key_button.x;
 		//client[id].player.y = key_button.y;
 		//client[id].player.z = key_button.z;
+		//client[id].player.button = key_button.key_button;
 		client[id].player.button = key_button.key_button;
-		serverplayer.Move(client[id].player.button, key_button.fDistance, false);
-		
-		client[id].player.x = serverplayer.GetPosition().x;
-		client[id].player.y = serverplayer.GetPosition().y;
-		client[id].player.z = serverplayer.GetPosition().z;
+		client[id].vl_lock.lock();
+		serverplayer[id].Move(client[id].player.button, 1, false);
+		client[id].vl_lock.unlock();
+		client[id].player.x = serverplayer[id].GetPosition().x;
+		client[id].player.y = 2;//serverplayer.GetPosition().y;
+		client[id].player.z = serverplayer[id].GetPosition().z;
+		//cout << key_button.key_button<<endl;
 		cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
+
+		for (int i = 0; i < MAX_USER; i++)
+		{
+			if (client[i].connected == true)
+			{
+				client[i].vl_lock.lock();
+				SendPositionPacket(i, id);
+				//SendLookPacket(i, id);
+				client[i].vl_lock.unlock();
+			}
+		}
+		client[id].player.button = 0;
 		break;
-	case 1:		//cx cy를 받아서 로테이트 처리해야한다.
+	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
 		memcpy(&rotate, packet, packet[0]);
-		serverplayer.Rotate(rotate.cx, rotate.cy, rotate.cz);
+		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
+		serverplayer[id].Rotate(rotate.cx, rotate.cy, 0);
 
-	/*	client[id].player.lookvector.x = serverplayer.GetLookvector().x;
-		client[id].player.lookvector.y = serverplayer.GetLookvector().y;
-		client[id].player.lookvector.z = serverplayer.GetLookvector().z;*/
-
-		cout << serverplayer.GetLookvector().x << " " << (float)serverplayer.GetLookvector().y << " " << (float)serverplayer.GetLookvector().z<<endl;
-		
-		//cout << client[id].player.lookvector.x << " " << client[id].player.lookvector.y << " " << client[id].player.lookvector.z << endl;
+		for (int i = 0; i < MAX_USER; i++)
+		{
+			if (client[i].connected == true)
+			{
+				client[i].vl_lock.lock();
+				SendLookPacket(i, id);
+				client[i].vl_lock.unlock();
+			}
+		}
 		break;
-	case 2:		//총을 쐈을때 처리를 해야한다.
+	case 3:		//총을 쐈을때 처리를 해야한다.
 		break;
 	default:
 		cout << "unknow packet : " << (int)packet[1];
@@ -338,31 +358,14 @@ void processpacket(int id, unsigned char *packet)
 	//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 	//cout << client[id].player.Bulletlist->x << " " << client[id].y << " " << client[id].z << endl;
 
-	for (int i = 0; i < MAX_USER; i++)
-	{
-		if (client[i].connected == true)
-		{
-			client[i].vl_lock.lock();
-			SendPositionPacket(i, id);
-			//SendLookPacket(i, id);
-			client[i].vl_lock.unlock();
-		}
-	}
+
 
 
 }
 
 CTimer timer1;
 
-void logic_thread()
-{
-	
-	do {
-		timer1.Tick();
 
-		//serverplayer.Update(timer1.GetTimeElapsed());
-	} while (true);
-}
 
 void Accept_thread()
 {
@@ -412,11 +415,25 @@ void Accept_thread()
 		client[new_id].connected = true;
 		client[new_id].sock = new_client;
 		client[new_id].id = new_id;
+		serverplayer[new_id].setid(new_id);
+
+		if (client[new_id].id % 2 == 0)
+			client[new_id].Team = true;
+
 
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
-		client[new_id].player.x = 0;
-		client[new_id].player.y = 0;
-		client[new_id].player.z = 0;
+		if (client[new_id].Team)
+		{
+			client[new_id].player.x = 65;
+			client[new_id].player.y = 2;
+			client[new_id].player.z = 12;
+		}
+		else
+		{
+			client[new_id].player.x = 265;
+			client[new_id].player.y = 2;
+			client[new_id].player.z = 230;
+		}
 		client[new_id].recv_overlap.operation = OP_RECV;
 		client[new_id].recv_overlap.packet_size = 0;
 		client[new_id].previous_data_size = 0;
@@ -571,11 +588,11 @@ void worker_Thread()
 int main(int argv, char* argc[])
 {
 
-	timer1.SetTimer(20);
+	//timer1.SetTimer(20);
 
 	thread* pAcceptThread;
-	thread* pTimerThread;
-	thread* plogicThread;
+	//thread* pTimerThread;
+
 	vector<thread*> vpThread;
 
 	Initialize_server();
@@ -592,8 +609,8 @@ int main(int argv, char* argc[])
 	}
 
 	pAcceptThread = new thread(Accept_thread);
-	pTimerThread = new thread(Timer_Thread);
-	plogicThread = new thread(logic_thread);
+	//pTimerThread = new thread(Timer_Thread);
+
 
 	while (g_isShutdown == false) {
 		Sleep(1000);
@@ -609,11 +626,9 @@ int main(int argv, char* argc[])
 	pAcceptThread->join();
 	delete pAcceptThread;
 
-	pTimerThread->join();
-	delete pTimerThread;
+	//pTimerThread->join();
+	//delete pTimerThread;
 
-	plogicThread->join();
-	delete plogicThread;
 
 
 	DeleteCriticalSection(&g_CriticalSection);
