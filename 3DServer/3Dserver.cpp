@@ -346,7 +346,7 @@ void processpacket(int id, unsigned char *packet)
 		client[id].player.z = serverplayer[id].GetPosition().z;
 		client[id].player.fire = serverplayer[id].Getfire();
 		//cout << key_button.key_button<<endl;
-		cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
+		//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
@@ -357,10 +357,13 @@ void processpacket(int id, unsigned char *packet)
 				sendbulletfire(i, id);
 				//SendLookPacket(i, id);
 				client[i].vl_lock.unlock();
+
+
 			}
 		}
 		client[id].player.button = 0;
 		client[id].player.fire = false;
+		serverplayer[id].setfire(false);
 		break;
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
 		memcpy(&rotate, packet, packet[0]);

@@ -79,8 +79,10 @@ public:
 	float getfPitch() { return player_move_info.m_fPitch; }
 	float getYaw() { return player_move_info.m_fYaw; }
 	void Setkey(DWORD key) { m_wKeyState = key; }
+	void setfire(bool fire) { m_fire = fire; }
 
 	bool Getfire() { return m_fire; }
+
 
 	void setid(int id) { 
 		m_id = id; 
