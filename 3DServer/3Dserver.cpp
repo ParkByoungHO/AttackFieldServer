@@ -65,9 +65,12 @@ struct vector3 {
 
 struct PLAYER {		//플레이어 좌표.
 
-	int x;
-	int y;
-	int z;
+	float x;
+	float y;
+	float z;
+
+	bool fire;
+
 
 	DWORD button;
 	vector3 lookvector;
@@ -152,10 +155,24 @@ void SendPositionPacket(int id, int object)
 	packet.y = client[object].player.y;
 	packet.z = client[object].player.z;
 
-	cout << packet.x<< " " << packet.y<<" " << packet.z << endl;
+	//cout << packet.x<< " " << packet.y<<" " << packet.z << endl;
 
 	Sendpacket(id, &packet);
 }
+
+void sendbulletfire(int id, int object)
+{
+	sc_bullet_fire  packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_PUT_Bullet;
+
+	packet.fire = client[object].player.fire;
+
+	Sendpacket(id, &packet);
+	
+}
+
 
 void SendLookPacket(int id, int object)
 {
@@ -163,10 +180,12 @@ void SendLookPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_ROTATE;
-	packet.x = serverplayer[id].GetLookvector().x;
-	packet.y = serverplayer[id].GetLookvector().y;
-	packet.z = serverplayer[id].GetLookvector().z;
+	packet.x = serverplayer[object].getfPitch();
+	packet.y = serverplayer[object].getYaw();
+	packet.z = 0;
 
+	//cout << object << endl;
+	//cout << packet.x << " " << packet.y << " " << packet.z << endl;
 
 	Sendpacket(id, &packet);
 }
@@ -293,6 +312,7 @@ void SendPutPlayerPacket(int clients, int player)
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
 }
 
+CTimer timer1;
 
 
 void processpacket(int id, unsigned char *packet)
@@ -312,12 +332,19 @@ void processpacket(int id, unsigned char *packet)
 		//client[id].player.z = key_button.z;
 		//client[id].player.button = key_button.key_button;
 		client[id].player.button = key_button.key_button;
+
 		client[id].vl_lock.lock();
-		serverplayer[id].Move(client[id].player.button, 1, false);
+		serverplayer[id].Setkey(client[id].player.button);
+		serverplayer[id].UpdateKeyInput(0.15);
+		//serverplayer[id].Update(0.015);
+
 		client[id].vl_lock.unlock();
+
+
 		client[id].player.x = serverplayer[id].GetPosition().x;
 		client[id].player.y = 2;//serverplayer.GetPosition().y;
 		client[id].player.z = serverplayer[id].GetPosition().z;
+		client[id].player.fire = serverplayer[id].Getfire();
 		//cout << key_button.key_button<<endl;
 		cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 
@@ -327,16 +354,23 @@ void processpacket(int id, unsigned char *packet)
 			{
 				client[i].vl_lock.lock();
 				SendPositionPacket(i, id);
+				sendbulletfire(i, id);
 				//SendLookPacket(i, id);
 				client[i].vl_lock.unlock();
 			}
 		}
 		client[id].player.button = 0;
+		client[id].player.fire = false;
 		break;
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
 		memcpy(&rotate, packet, packet[0]);
 		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
+		client[id].vl_lock.lock();
 		serverplayer[id].Rotate(rotate.cx, rotate.cy);
+		client[id].vl_lock.unlock();
+		client[id].player.lookvector.x = serverplayer[id].GetLookvector().x;
+		client[id].player.lookvector.y = serverplayer[id].GetLookvector().y;
+		client[id].player.lookvector.z = serverplayer[id].GetLookvector().z;
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
@@ -362,10 +396,13 @@ void processpacket(int id, unsigned char *packet)
 
 
 
+	
+	
+
 
 }
 
-CTimer timer1;
+
 
 
 
@@ -590,7 +627,7 @@ void worker_Thread()
 int main(int argv, char* argc[])
 {
 
-	//timer1.SetTimer(20);
+	timer1.SetTimer(20);
 
 	thread* pAcceptThread;
 	//thread* pTimerThread;

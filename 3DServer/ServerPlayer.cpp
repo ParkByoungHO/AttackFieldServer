@@ -15,55 +15,92 @@ CServerPlayer::CServerPlayer()
 	player_move_info.m_fPitch = 0.0f;
 	player_move_info.m_fRoll = 0.0f;
 	player_move_info.m_fYaw = 0.0f;
-
-
-
-
-
 }
+
+enum class KeyInput
+{
+	eNone,
+
+	// Direction & Moving
+	eForward = 0x01,
+	eBackward = 0x02,
+	eLeft = 0x04,
+	eRight = 0x08,
+	eRun = 0x10,
+
+	// Mouse
+	eLeftMouse = 0x20,
+	eRightMouse = 0x40,
+	eMouseWheel = 0x80,		// 휠 위아래는 추후 구현
+
+};
 
 
 CServerPlayer::~CServerPlayer()
 {
 }
 
-void CServerPlayer::Move(DWORD dwDirection, float fDistance, bool bUpdateVelocity)
+void CServerPlayer::UpdateKeyInput(float fTimeElapsed)			// FSM으로 제작하여 상호 관계를 확실히 해야함. 일단 임시로 제작
 {
+	// Keyboard
+	XMVECTOR d3dxvShift = XMVectorZero();
 
-	{
-		if (dwDirection)
-		{
-			XMVECTOR d3dxvShift = XMVectorZero();
-			if (dwDirection & DIR_FORWARD) d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvLook) * fDistance;
-			if (dwDirection & DIR_BACKWARD) d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvLook) * fDistance;
-			if (dwDirection & DIR_RIGHT) d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvRight) * fDistance;
-			if (dwDirection & DIR_LEFT) d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvRight) * fDistance;
-			if (dwDirection & 0x20) ;
-			if (dwDirection & 0x40) ;
+	if (m_wKeyState & static_cast<int>(KeyInput::eForward)) {
+				d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvLook);
 
-			Move(d3dxvShift, bUpdateVelocity);
-
-			//현재방향 저장
-			player_move_info.dwDirection = dwDirection;
-		}
+		//if (m_pCharacter->GetAnimation() != AnimationData::CharacterAnim::eRun)
+		//	m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
 	}
+
+	if (m_wKeyState & static_cast<int>(KeyInput::eBackward)) {
+			d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvLook);
+		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+	}
+
+	if (m_wKeyState & static_cast<int>(KeyInput::eLeft)) {
+		d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvRight);
+		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+	}
+
+	if (m_wKeyState & static_cast<int>(KeyInput::eRight)) {
+		d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvRight);
+		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+	}
+
+	if (m_wKeyState & static_cast<int>(KeyInput::eRun)) {
+		d3dxvShift *= 10;		// m_fSpeed 로 변경해야함
+		d3dxvShift *= 3;		// m_fSpeed 로 변경해야함
+		//m_pCharacter->Running();
+	}
+
+	//Mouse
+	if (m_wKeyState & static_cast<int>(KeyInput::eLeftMouse)) {
+		m_fire = true;
+		//m_pCharacter->Firing();
+	}
+	if (m_wKeyState & static_cast<int>(KeyInput::eRightMouse)) {
+
+	}
+	/*	- FSM 만들고 사용하기
+	if ((m_wKeyState & static_cast<int>(KeyInput::eForward))
+	&& (m_wKeyState & static_cast<int>(KeyInput::eLeftMouse)))
+	m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalkingFire);
+	*/
+	if (m_wKeyState == 0) {
+		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eIdle);
+	}
+
+	d3dxvShift *= player_move_info.m_fSpeed * fTimeElapsed;
+	XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvShift);
+
+	Move(d3dxvShift);
+
 }
 
-void CServerPlayer::Move(const XMVECTOR& d3dxvShift, bool bUpdateVelocity)
+void CServerPlayer::Move(XMVECTOR d3dxvShift)
 {
-
-	{
-		if (bUpdateVelocity)
-		{
-			XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvShift);
-		}
-		else
-		{
-			XMVECTOR d3dxvPosition = XMLoadFloat3(&player_move_info.m_d3dxvPosition);
-			d3dxvPosition = d3dxvPosition + d3dxvShift;
-			XMStoreFloat3(&player_move_info.m_d3dxvPosition, d3dxvPosition);
-		}
-	}
+	XMVECTOR d3dxvPosition = XMLoadFloat3(&player_move_info.m_d3dxvPosition) + d3dxvShift;
+	XMStoreFloat3(&player_move_info.m_d3dxvPosition, d3dxvPosition);
 }
 
 
@@ -98,6 +135,42 @@ void CServerPlayer::Rotate(float x, float y)
 
 	
 
+
+}
+
+void CServerPlayer::Update(float fTimeElapsed)
+{
+	XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + XMLoadFloat3(&player_move_info.m_d3dxvGravity) * fTimeElapsed);
+	float fLength = sqrtf(player_move_info.m_d3dxvVelocity.x * player_move_info.m_d3dxvVelocity.x + player_move_info.m_d3dxvVelocity.z * player_move_info.m_d3dxvVelocity.z);
+	float fMaxVelocityXZ = player_move_info.m_fMaxVelocityXZ * fTimeElapsed;
+
+	if (fLength > fMaxVelocityXZ)
+	{
+		player_move_info.m_d3dxvVelocity.x *= (fMaxVelocityXZ / fLength);
+		player_move_info.m_d3dxvVelocity.z *= (fMaxVelocityXZ / fLength);
+	}
+
+	// Apply Gravity
+	float fMaxVelocityY = player_move_info.m_fMaxVelocityY * fTimeElapsed;
+	fLength = sqrtf(player_move_info.m_d3dxvVelocity.y * player_move_info.m_d3dxvVelocity.y);
+	if (fLength > fMaxVelocityY) player_move_info.m_d3dxvVelocity.y *= (fMaxVelocityY / fLength);
+	//	m_d3dxvVelocity.y = 0;		// 임시 고정
+
+	Move(XMLoadFloat3(&player_move_info.m_d3dxvVelocity));
+	//if (m_bIsFloorCollision) OnPlayerUpdated(fTimeElapsed);
+
+	// Apply Deceleration 
+	XMVECTOR d3dxvDeceleration = -XMLoadFloat3(&player_move_info.m_d3dxvVelocity);
+	d3dxvDeceleration = XMVector3Normalize(d3dxvDeceleration);
+	fLength = XMVectorGetX(XMVector3Length(XMLoadFloat3(&player_move_info.m_d3dxvVelocity)));
+	float fDeceleration = (player_move_info.m_fFriction * fTimeElapsed);
+	if (fDeceleration > fLength) fDeceleration = fLength;
+	XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvDeceleration * fDeceleration);
+
+	// Camera Update
+
+
+		// character update
 		XMFLOAT4X4 mtx;	XMStoreFloat4x4(&mtx, m_mtxWorld);
 
 		mtx._11 = player_move_info.m_d3dxvRight.x;		mtx._12 = player_move_info.m_d3dxvRight.y;		mtx._13 = player_move_info.m_d3dxvRight.z;
@@ -106,34 +179,5 @@ void CServerPlayer::Rotate(float x, float y)
 		mtx._41 = player_move_info.m_d3dxvPosition.x;	mtx._42 = player_move_info.m_d3dxvPosition.y;	mtx._43 = player_move_info.m_d3dxvPosition.z;
 
 		m_mtxWorld = XMLoadFloat4x4(&mtx);
-
-}
-
-void CServerPlayer::Update(float fTimeElapsed)
-{
-		XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + XMLoadFloat3(&player_move_info.m_d3dxvGravity) * fTimeElapsed);
-		float fLength = sqrtf(player_move_info.m_d3dxvVelocity.x * player_move_info.m_d3dxvVelocity.x + player_move_info.m_d3dxvVelocity.z * player_move_info.m_d3dxvVelocity.z);
-		float fMaxVelocityXZ = player_move_info.m_fMaxVelocityXZ * fTimeElapsed;
-		if (fLength > fMaxVelocityXZ)
-		{
-			player_move_info.m_d3dxvVelocity.x *= (fMaxVelocityXZ / fLength);
-			player_move_info.m_d3dxvVelocity.z *= (fMaxVelocityXZ / fLength);
-		}
-		float fMaxVelocityY = player_move_info.m_fMaxVelocityY * fTimeElapsed;
-		fLength = sqrtf(player_move_info.m_d3dxvVelocity.y * player_move_info.m_d3dxvVelocity.y);
-		if (fLength > fMaxVelocityY) player_move_info.m_d3dxvVelocity.y *= (fMaxVelocityY / fLength);
-		Move(XMLoadFloat3(&player_move_info.m_d3dxvVelocity), false);
-
-
-
-		XMVECTOR d3dxvDeceleration = -XMLoadFloat3(&player_move_info.m_d3dxvVelocity);
-		d3dxvDeceleration = XMVector3Normalize(d3dxvDeceleration);
-
-		D3DXVECTOR3 v3 = D3DXLoadFLOAT3(player_move_info.m_d3dxvVelocity);
-		fLength = D3DXVec3Length(&v3);
-		float fDeceleration = (player_move_info.m_fFriction * fTimeElapsed);
-		if (fDeceleration > fLength) fDeceleration = fLength;
-		XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvDeceleration * fDeceleration);
-
 
 }

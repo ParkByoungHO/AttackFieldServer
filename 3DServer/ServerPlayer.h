@@ -19,28 +19,6 @@
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
-struct PLAYER_INPUT_INFO {
-
-	bool key_W_Down = false;
-	bool key_A_Down = false;
-	bool key_S_Down = false;
-	bool key_D_Down = false;
-
-	bool key_LSHIFT_Down = false;
-
-	bool key_1_Down = false;
-	bool key_2_Down = false;
-	bool key_3_Down = false;
-	bool key_4_Down = false;
-
-	bool key_SPACE_Down = false;
-
-	bool mouse_LBUTTON_Down = false;
-	bool mouse_RBUTTON_Down = false;
-
-
-};
-
 
 struct PLAYER_MOVE_INFO {
 
@@ -55,13 +33,17 @@ struct PLAYER_MOVE_INFO {
 
 	XMFLOAT3					m_d3dxvVelocity;
 	XMFLOAT3     				m_d3dxvGravity;
-	float           			m_fMaxVelocityXZ;
+
+
+
+	float           			m_fMaxVelocityXZ = 500.0f;
 	float           			m_fMaxVelocityY;
 	float           			m_fFriction;
 
 	float           			m_fPitch;
 	float           			m_fYaw;
 	float           			m_fRoll;
+	int							m_fSpeed = 5;
 
 	float m_cxDelta;
 	float m_cyDelta;
@@ -74,22 +56,32 @@ struct PLAYER_MOVE_INFO {
 class CServerPlayer
 {
 private:
-	PLAYER_INPUT_INFO player_input_info;
+	WORD			 m_wKeyState = 0;
 	PLAYER_MOVE_INFO player_move_info;
 
 	XMMATRIX	m_mtxWorld = XMMatrixIdentity();
 
 	int m_id;
-	
+	bool m_fire = false;
 	
 public:
 	CServerPlayer();
 	~CServerPlayer();
 	
-	void Move(DWORD nDirection, float fDistance, bool bVelocity = false);
-	void Move(const XMVECTOR& d3dxvShift, bool bVelocity = false);
+	//void Move(DWORD nDirection, float fDistance, bool bVelocity = false);
+	//void Move(const XMVECTOR& d3dxvShift, bool bVelocity = false);
+
+	void Move(XMVECTOR d3dxvShift);
+	void UpdateKeyInput(float fTimeElapsed);
+
 	void Rotate(float x, float y);
 	void Update(float fTimeElapsed);
+	float getfPitch() { return player_move_info.m_fPitch; }
+	float getYaw() { return player_move_info.m_fYaw; }
+	void Setkey(DWORD key) { m_wKeyState = key; }
+
+	bool Getfire() { return m_fire; }
+
 	void setid(int id) { 
 		m_id = id; 
 
