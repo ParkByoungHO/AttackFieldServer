@@ -15,7 +15,7 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-CServerPlayer serverplayer[10];
+ 
 
 void error_display(char *msg, int err_num)
 {
@@ -77,11 +77,11 @@ void SendPositionPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_POS;
-	packet.x = client[object].player.x;
-	packet.y = client[object].player.y;
-	packet.z = client[object].player.z;
-	packet.Hp = client[object].player.Hp;
-	packet.Animation = client[object].player.Animation;
+	packet.x = client[object].player.GetPosition().x;
+	packet.y = client[object].player.GetPosition().y;
+	packet.z = client[object].player.GetPosition().z;
+	packet.Hp = client[object].player.GetHp();
+	packet.Animation = client[object].player.GetAnimation();
 
 
 
@@ -100,8 +100,8 @@ void sendbulletfire(int id, int object)
 	packet.size = sizeof(packet);
 	packet.type = SC_PUT_Bullet;
 
-	packet.fire = client[object].player.fire;
-	packet.FireDirection = client[object].player.FireDirecton;
+	packet.fire = client[object].player.Getfire();
+	XMStoreFloat3(&packet.FireDirection , client[object].player.GetLook());
 
 	Sendpacket(id, &packet);
 	
@@ -113,14 +113,26 @@ void SendLookPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_ROTATE;
-	packet.x = serverplayer[object].getfPitch();
-	packet.y = serverplayer[object].getYaw();
+	packet.x = client[object].player.getfPitch();
+	packet.y = client[object].player.getYaw();
 	packet.z = 0;
 
 	//cout << object << endl;
 	//cout << packet.x << " " << packet.y << " " << packet.z << endl;
 
 	Sendpacket(id, &packet);
+}
+
+void SendCollisonPacket(int id, int object, bool collision)
+{
+	SC_Collison packet;
+	packet.size = sizeof(SC_Collison);
+	packet.id = object;
+	packet.type = SC_ColliSion;
+	packet.collision = collision;
+
+	Sendpacket(id, &packet);
+
 }
 
 void Timer_Thread()
@@ -189,11 +201,11 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.id = player;
 	packet.size = sizeof(packet);
 	packet.type = SC_PUT_PLAYER;
-	packet.x = client[player].player.x;
-	packet.y = client[player].player.y;
-	packet.z = client[player].player.z;
-	packet.hp = client[player].player.Hp;
-	packet.Animation = client[player].player.Animation;
+	packet.x = client[player].player.GetPosition().x;
+	packet.y = client[player].player.GetPosition().y;
+	packet.z = client[player].player.GetPosition().z;
+	packet.hp = client[player].player.GetHp();
+	packet.Animation = client[player].player.GetAnimation();
 
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
 }
@@ -202,38 +214,31 @@ void processpacket(int id, unsigned char *packet)
 {
 	//패킷 종류별로 처리가 달라진다.
 	// 0 size 1 type
-	cs_key_input *key_button;
-	cs_rotate *rotate;
 
 	BYTE packet_type = packet[1];
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
+	{
+		cs_key_input *key_button;
 		key_button = reinterpret_cast<cs_key_input *>(packet);
+		XMFLOAT3 Temp(key_button->x, key_button->y, key_button->z);
 		// memcpy(&key_button, packet, packet[0]);
-		client[id].player.x = key_button->x;
-		client[id].player.y = key_button->y;
-		client[id].player.z = key_button->z;
-		client[id].player.Hp = key_button->Hp;
-
-		client[id].player.button = key_button->key_button;
-		client[id].player.FireDirecton = key_button->FireDirection;
-
-		//cout << key_button->key_button << endl;
-		
 		client[id].vl_lock.lock();
-		serverplayer[id].Setkey(client[id].player.button);
-		//serverplayer[id].UpdateKeyInput(0.15);
-		//serverplayer[id].Update(0.015);
-
+		client[id].player.SetPosition(Temp);
+		client[id].player.SetHp(key_button->Hp);
+		client[id].player.Setkey(key_button->key_button);
+		client[id].player.SetFireDirection(key_button->FireDirection);
+		client[id].player.SetAnimation(key_button->Animation);
 		client[id].vl_lock.unlock();
+		//cout << key_button->key_button << endl;
 
+	
 
 		//client[id].player.x = serverplayer[id].Getd3dxvVelocity().x;
 		//client[id].player.y = 
 		//client[id].player.z = serverplayer[id].Getd3dxvVelocity().z;
-		client[id].player.Animation = key_button->Animation;
-		client[id].player.fire = serverplayer[id].Getfire();
+
 		//cout << key_button.key_button<<endl;
 		//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 
@@ -252,23 +257,21 @@ void processpacket(int id, unsigned char *packet)
 		}
 
 		//cout << serverplayer[id].Getd3dxvVelocity().x<<" "<< serverplayer[id].Getd3dxvVelocity().y<<" "<< serverplayer[id].Getd3dxvVelocity().z<<endl;
-		client[id].player.button = 0;
-		client[id].player.fire = false;
-		serverplayer[id].setfire(false);
-		serverplayer[id].Setkey(0);
-		serverplayer[id].Setd3dxvVelocity(0, 0, 0);
-		client[id].player.Animation = { 0,0,0 };
+		client[id].player.Setkey(0);
+		client[id].player.setfire(false);
+		client[id].player.Setd3dxvVelocity(0, 0, 0);
+		client[id].player.SetAnimation(XMFLOAT3(0,0,0));
 		break;
+	}
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
+	{
+		cs_rotate *rotate;
 		//memcpy(&rotate, packet, packet[0]);
 		rotate = reinterpret_cast<cs_rotate *>(packet);
 		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
 		client[id].vl_lock.lock();
-		serverplayer[id].Rotate(rotate->cx, rotate->cy);
+		client[id].player.Rotate(rotate->cx, rotate->cy);
 		client[id].vl_lock.unlock();
-		client[id].player.lookvector.x = serverplayer[id].GetLookvector().x;
-		client[id].player.lookvector.y = serverplayer[id].GetLookvector().y;
-		client[id].player.lookvector.z = serverplayer[id].GetLookvector().z;
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
@@ -280,12 +283,44 @@ void processpacket(int id, unsigned char *packet)
 			}
 		}
 		break;
-	case 3:		//총을 쐈을때 처리를 해야한다.
+	}
+	case CS_WEAPONE:
+	{
+		cs_weapon *weapon;
+		weapon = reinterpret_cast<cs_weapon *>(packet);
+		CollisionInfo info;
+		bool isCollisionSC = false;
+		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+		//이걸 클라에게 보냈어
+		if (isCollisionSC) {
+			cout << info.m_nObjectID;
+			//클라에게 불변수 보낸다.
+			for (int i = 0; i < MAX_USER; i++)
+			{
+				if (client[i].connected == true)
+				{
+					client[i].vl_lock.lock();
+					SendCollisonPacket(i, id, isCollisionSC);
+					client[i].vl_lock.unlock();
+				}
+			}
+
+		}
+		break;
+	}
+	case CS_HEAD_HIT:
+	{
+		CS_Head_Collison	*Hit;
+		Hit = reinterpret_cast<CS_Head_Collison *>(packet);
+		if (!Hit->Head)
+			client[id].player.SetHp(client[id].player.GetHp() - 30);
+		else
+			client[id].player.SetHp(client[id].player.GetHp() - 75);
 		break;
 	default:
-		cout << "unknow packet : " << (int)packet[1]<<endl;
+		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;
-
+	}
 	}
 
 
@@ -354,7 +389,7 @@ void Accept_thread()
 		client[new_id].connected = true;
 		client[new_id].sock = new_client;
 		client[new_id].id = new_id;
-		serverplayer[new_id].setid(new_id);
+		client[new_id].player.setid(new_id);
 
 		if (client[new_id].id % 2 == 0)
 			client[new_id].Team = true;
@@ -363,23 +398,22 @@ void Accept_thread()
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
 		if (client[new_id].Team)
 		{
-			client[new_id].player.x = 65;
-			client[new_id].player.y = 2;
-			client[new_id].player.z = 12;
+			XMFLOAT3 Temp(60,2,12);
+			client[new_id].player.SetPosition(Temp);
+
 		}
 		else
 		{
-			client[new_id].player.x = 65;
-			client[new_id].player.y = 2;
-			client[new_id].player.z = 25;
+			XMFLOAT3 Temp(65,2, 25);
+			client[new_id].player.SetPosition(Temp);
 		}
-		client[new_id].player.Hp = 100;
+		client[new_id].player.SetHp(100);
 
-		client[new_id].player.Animation = { 0,0,0 };
+		client[new_id].player.SetAnimation(XMFLOAT3(0,0,0));
 		client[new_id].recv_overlap.operation = OP_RECV;
 		client[new_id].recv_overlap.packet_size = 0;
 		client[new_id].previous_data_size = 0;
-		client[new_id].player.FireDirecton = { 0,0,0 };
+		client[new_id].player.SetFireDirection(XMFLOAT3(0,0,0));
 
 		LeaveCriticalSection(&g_CriticalSection);
 
@@ -389,12 +423,14 @@ void Accept_thread()
 		put_player_packet.id = new_id;
 		put_player_packet.size = sizeof(put_player_packet);
 		put_player_packet.type = SC_PUT_PLAYER;
-		put_player_packet.x = client[new_id].player.x;
-		put_player_packet.y = client[new_id].player.y;
-		put_player_packet.z = client[new_id].player.z;
-		put_player_packet.hp = client[new_id].player.Hp;
-		put_player_packet.Animation = client[new_id].player.Animation;
+		put_player_packet.x = client[new_id].player.GetPosition().x;
+		put_player_packet.y = client[new_id].player.GetPosition().y;
+		put_player_packet.z = client[new_id].player.GetPosition().z;
+		put_player_packet.hp = client[new_id].player.GetHp();
+		put_player_packet.Animation = client[new_id].player.GetAnimation();
 
+		//CCharacterObject* pCharacter = new CCharacterObject();
+		//COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
 		//입출력 포트와 클라이언트 연결
 		CreateIoCompletionPort(reinterpret_cast<HANDLE>(new_client), g_hIocp, new_id, 0);
 

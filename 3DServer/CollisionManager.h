@@ -18,6 +18,7 @@ public:
 	virtual void UpdateManager() override;
 	virtual void ReleseManager() override;
 
+
 	bool RayCastCollision(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction);
 	bool RayCastCollisionToCharacter(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction);
 	bool AABBCollision(CollisionInfo& info, BoundingBox bcBox);

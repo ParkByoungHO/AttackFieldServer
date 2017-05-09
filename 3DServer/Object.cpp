@@ -325,6 +325,7 @@ XMFLOAT3 CGameObject::GetLook(bool isLocal) const
 
 BoundingBox CGameObject::GetBoundingBox(bool isLocal) const
 {
+	//여기에 플레이어 매트릭스 넣어줘라
 	if (isLocal) 
 		return m_bcMeshBoundingBox;
 	else {
@@ -336,6 +337,7 @@ BoundingBox CGameObject::GetBoundingBox(bool isLocal) const
 
 BoundingOrientedBox CGameObject::GetBoundingOBox(bool isLocal) const
 {
+	//여기에 플레이어 매트릭스 넣어줘라
 	if (isLocal)
 		return m_bcMeshBoundingOBox;
 	else {
@@ -347,13 +349,11 @@ BoundingOrientedBox CGameObject::GetBoundingOBox(bool isLocal) const
 
 BoundingSphere CGameObject::GetBoundingSphere(bool isLocal) const
 {
-	if (isLocal)
-		return m_bsMeshBoundingSphere;
-	else {
-		BoundingSphere bsSphere = m_bsMeshBoundingSphere;
-		bsSphere.Transform(bsSphere, m_mtxWorld);
-		return bsSphere;
-	}
+	//여기에 플레이어 매트릭스 넣어줘라
+	BoundingSphere bsSphere = m_bsMeshBoundingSphere;
+	bsSphere.Transform(bsSphere, m_mtxWorld);
+	return bsSphere;
+
 }
 
 void CGameObject::SetRight(XMFLOAT3 axis, bool isLocal)

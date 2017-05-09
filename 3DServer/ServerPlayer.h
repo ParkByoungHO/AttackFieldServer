@@ -7,11 +7,6 @@
 //#define DIR_UP		0x10
 //#define DIR_DOWN		0x20
 
-
-using namespace DirectX;
-using namespace DirectX::PackedVector;
-
-
 struct PLAYER_MOVE_INFO {
 
 	bool isMove;
@@ -26,6 +21,8 @@ struct PLAYER_MOVE_INFO {
 	XMFLOAT3					m_d3dxvVelocity;	//이값을 클라한테 넘겨야 한다.
 	XMFLOAT3     				m_d3dxvGravity;
 
+	XMFLOAT3					Animation;
+	XMFLOAT3					FireDirection;
 
 
 	float           			m_fMaxVelocityXZ = 500.0f;
@@ -37,11 +34,10 @@ struct PLAYER_MOVE_INFO {
 	float           			m_fRoll;
 	float						m_fSpeed = 0.5;
 
-	float m_cxDelta;
-	float m_cyDelta;
+	float						m_cxDelta;
+	float						m_cyDelta;
 
-	float m_fDistance;
-
+	float						m_fDistance;
 };
 
 
@@ -53,7 +49,8 @@ private:
 
 	XMMATRIX	m_mtxWorld = XMMatrixIdentity();
 
-	int m_id;
+	BYTE m_HP = 100;
+	int  m_id = 0;
 	bool m_fire = false;
 	
 public:
@@ -73,7 +70,20 @@ public:
 	void Setkey(DWORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); }
 	void setfire(bool fire) { m_fire = fire; }
 
+
+	BYTE GetHp() { return m_HP; }
+	void SetHp(BYTE hp) { m_HP = hp; }
+
 	bool Getfire() { return m_fire; }
+	
+	void SetAnimation(XMFLOAT3 Animation) { player_move_info.Animation = Animation; }
+	XMFLOAT3 GetAnimation() { return player_move_info.Animation; }
+	void SetPosition(XMFLOAT3 Position) { player_move_info.m_d3dxvPosition = Position; }
+
+	void SetFireDirection(XMFLOAT3	fireDirection) { player_move_info.FireDirection = fireDirection; }
+	XMFLOAT3 GetFireDirection() { return player_move_info.FireDirection; }
+
+
 
 
 	void setid(int id) { 

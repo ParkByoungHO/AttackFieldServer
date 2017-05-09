@@ -1,5 +1,18 @@
 #pragma once
 
+class CGameObject;
+struct CollisionInfo
+{
+	CGameObject*		m_pHitObject = nullptr;
+	float				m_fDistance = FLT_MAX;
+	XMFLOAT3			m_f3HitNormal = XMFLOAT3(0, 0, 0);
+	DWORD				m_dwFaceIndex = 0;
+	float				m_fU = 0.0f;
+	float				m_fV = 0.0f;
+	UINT				m_nObjectID = 0;
+	ChracterBoundingBoxParts	m_HitParts = ChracterBoundingBoxParts::eNone;
+};
+
 class CGameObject
 {
 public:

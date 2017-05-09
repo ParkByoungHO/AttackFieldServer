@@ -15,10 +15,16 @@ using namespace std;
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 #include <DirectXCollision.h>
-using namespace DirectX;
+
 #pragma comment(lib,"Ws2_32")
 
+using namespace DirectX;
+using namespace DirectX::PackedVector;
+
+// ----- User Header ----- //
 #include "EnumDefine.h"
+#include "CollisionManager.h"
+#include "ServerPlayer.h"
 
 #define SERVERPORT		9000
 
@@ -31,6 +37,7 @@ using namespace DirectX;
 #define	SC_PUT_Bullet		3
 #define	SC_REMOVE_PLAYER	4
 #define	SC_ROTATE			5
+#define	SC_ColliSion		6
 
 #define MAX_USER			10
 
@@ -111,25 +118,10 @@ struct CLIENT {
 	int				id;
 	bool			connected;
 	SOCKET			sock;
-	PLAYER			player;
 	Overlapex		recv_overlap;
 	int				previous_data_size;
 	mutex			vl_lock;
 	BYTE			packet[MAX_BUFFSIZE];
 	bool			Team = false;
-
-};
-
-class CGameObject;
-
-struct CollisionInfo
-{
-	CGameObject*		m_pHitObject = nullptr;
-	float				m_fDistance = FLT_MAX;
-	XMFLOAT3			m_f3HitNormal = XMFLOAT3(0, 0, 0);
-	DWORD				m_dwFaceIndex = 0;
-	float				m_fU = 0.0f;
-	float				m_fV = 0.0f;
-
-	ChracterBoundingBoxParts	m_HitParts = ChracterBoundingBoxParts::eNone;
+	CServerPlayer	player;
 };

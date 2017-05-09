@@ -67,7 +67,6 @@ bool CCollisionManager::RayCastCollision(CollisionInfo& info, XMVECTOR originPos
 
 bool CCollisionManager::RayCastCollisionToCharacter(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction)	//캐릭터 충돌 함수.
 {
-	
 	// 1차 Sphere
 	if (!RayCastCollisionToCharacter_Sphere(info, originPos, direction))	//이거먼저
 		return false;
@@ -123,6 +122,7 @@ bool CCollisionManager::RayCastCollisionToCharacter_Sphere(CollisionInfo& info, 
 
 	if (isCollision) {
 		info.m_pHitObject = pNearestObject;
+		info.m_nObjectID = pNearestObject->GetObjectID();
 		return true;
 	}
 	return false;
