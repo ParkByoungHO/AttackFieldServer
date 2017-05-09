@@ -1,13 +1,5 @@
 #pragma once
 
-
-#include <D3DX10Math.h>
-
-
-#include <DirectXMath.h>
-#include <DirectXPackedVector.h>
-#include <DirectXCollision.h>
-
 #define DIR_FORWARD		0x01
 #define DIR_BACKWARD	0x02
 #define DIR_LEFT		0x04
@@ -31,7 +23,7 @@ struct PLAYER_MOVE_INFO {
 	XMFLOAT3					m_d3dxvUp;
 	XMFLOAT3					m_d3dxvLook;
 
-	XMFLOAT3					m_d3dxvVelocity;
+	XMFLOAT3					m_d3dxvVelocity;	//이값을 클라한테 넘겨야 한다.
 	XMFLOAT3     				m_d3dxvGravity;
 
 
@@ -43,7 +35,7 @@ struct PLAYER_MOVE_INFO {
 	float           			m_fPitch;
 	float           			m_fYaw;
 	float           			m_fRoll;
-	int							m_fSpeed = 5;
+	float						m_fSpeed = 0.5;
 
 	float m_cxDelta;
 	float m_cyDelta;
@@ -78,7 +70,7 @@ public:
 	void Update(float fTimeElapsed);
 	float getfPitch() { return player_move_info.m_fPitch; }
 	float getYaw() { return player_move_info.m_fYaw; }
-	void Setkey(DWORD key) { m_wKeyState = key; }
+	void Setkey(DWORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); }
 	void setfire(bool fire) { m_fire = fire; }
 
 	bool Getfire() { return m_fire; }
@@ -95,17 +87,28 @@ public:
 		}
 		else
 		{
-			player_move_info.m_d3dxvPosition.x = 265;
+			player_move_info.m_d3dxvPosition.x = 60;
 			player_move_info.m_d3dxvPosition.y = 2;
-			player_move_info.m_d3dxvPosition.z = 230;
+			player_move_info.m_d3dxvPosition.z = 20;
 		}
 	}
 
+	XMFLOAT3 Getd3dxvVelocity()
+	{
+		return player_move_info.m_d3dxvVelocity;
+	}
 	
 
 	XMFLOAT3 GetPosition()
 	{
 		return player_move_info.m_d3dxvPosition;
+	}
+
+	void Setd3dxvVelocity(float x, float y, float z)
+	{
+		player_move_info.m_d3dxvVelocity.x = x;
+		player_move_info.m_d3dxvVelocity.y = y;
+		player_move_info.m_d3dxvVelocity.z = z;
 	}
 
 	XMVECTOR& GetLook()

@@ -1,13 +1,8 @@
+#include "stdafx.h"
 #include "ServerPlayer.h"
-
-inline D3DXVECTOR3&& D3DXLoadFLOAT3(const XMFLOAT3 xmf)
-{
-	return D3DXVECTOR3(xmf.x, xmf.y, xmf.z);
-}
 
 CServerPlayer::CServerPlayer()
 {
-
 	player_move_info.m_d3dxvRight = XMFLOAT3(1.0f, 0.0f, 0.0f);
 	player_move_info.m_d3dxvUp = XMFLOAT3(0.0f, 1.0f, 0.0f);
 	player_move_info.m_d3dxvLook = XMFLOAT3(0.0f, 0.0f, 1.0f);
@@ -17,30 +12,11 @@ CServerPlayer::CServerPlayer()
 	player_move_info.m_fYaw = 0.0f;
 }
 
-enum class KeyInput
-{
-	eNone,
-
-	// Direction & Moving
-	eForward = 0x01,
-	eBackward = 0x02,
-	eLeft = 0x04,
-	eRight = 0x08,
-	eRun = 0x10,
-
-	// Mouse
-	eLeftMouse = 0x20,
-	eRightMouse = 0x40,
-	eMouseWheel = 0x80,		// ÈÙ À§¾Æ·¡´Â ÃßÈÄ ±¸Çö
-
-};
-
-
 CServerPlayer::~CServerPlayer()
 {
 }
 
-void CServerPlayer::UpdateKeyInput(float fTimeElapsed)			// FSMÀ¸·Î Á¦ÀÛÇÏ¿© »óÈ£ °ü°è¸¦ È®½ÇÈ÷ ÇØ¾ßÇÔ. ÀÏ´Ü ÀÓ½Ã·Î Á¦ÀÛ
+void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 {
 	// Keyboard
 	XMVECTOR d3dxvShift = XMVectorZero();
@@ -48,46 +24,39 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)			// FSMÀ¸·Î Á¦ÀÛÇÏ¿© »óÈ
 	if (m_wKeyState & static_cast<int>(KeyInput::eForward)) {
 				d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvLook);
 
-		//if (m_pCharacter->GetAnimation() != AnimationData::CharacterAnim::eRun)
-		//	m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
 	}
 
 	if (m_wKeyState & static_cast<int>(KeyInput::eBackward)) {
 			d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvLook);
-		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+
 	}
 
 	if (m_wKeyState & static_cast<int>(KeyInput::eLeft)) {
 		d3dxvShift -= XMLoadFloat3(&player_move_info.m_d3dxvRight);
-		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+
 	}
 
 	if (m_wKeyState & static_cast<int>(KeyInput::eRight)) {
 		d3dxvShift += XMLoadFloat3(&player_move_info.m_d3dxvRight);
-		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalk);
+
 	}
 
 	if (m_wKeyState & static_cast<int>(KeyInput::eRun)) {
-		d3dxvShift *= 10;		// m_fSpeed ·Î º¯°æÇØ¾ßÇÔ
 		d3dxvShift *= 3;		// m_fSpeed ·Î º¯°æÇØ¾ßÇÔ
-		//m_pCharacter->Running();
+
 	}
 
 	//Mouse
 	if (m_wKeyState & static_cast<int>(KeyInput::eLeftMouse)) {
 		m_fire = true;
-		//m_pCharacter->Firing();
+
 	}
 	if (m_wKeyState & static_cast<int>(KeyInput::eRightMouse)) {
 
 	}
-	/*	- FSM ¸¸µé°í »ç¿ëÇÏ±â
-	if ((m_wKeyState & static_cast<int>(KeyInput::eForward))
-	&& (m_wKeyState & static_cast<int>(KeyInput::eLeftMouse)))
-	m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eWalkingFire);
-	*/
+
 	if (m_wKeyState == 0) {
-		//m_pCharacter->SetAnimation(AnimationData::CharacterAnim::eIdle);
+
 	}
 
 	d3dxvShift *= player_move_info.m_fSpeed * fTimeElapsed;
@@ -103,11 +72,8 @@ void CServerPlayer::Move(XMVECTOR d3dxvShift)
 	XMStoreFloat3(&player_move_info.m_d3dxvPosition, d3dxvPosition);
 }
 
-
 void CServerPlayer::Rotate(float x, float y)
 {
-
-	
 		XMMATRIX mtxRotate;
 
 		if (x != 0.0f)
@@ -167,17 +133,12 @@ void CServerPlayer::Update(float fTimeElapsed)
 	if (fDeceleration > fLength) fDeceleration = fLength;
 	XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvDeceleration * fDeceleration);
 
-	// Camera Update
+	XMFLOAT4X4 mtx;	XMStoreFloat4x4(&mtx, m_mtxWorld);
 
+	mtx._11 = player_move_info.m_d3dxvRight.x;		mtx._12 = player_move_info.m_d3dxvRight.y;		mtx._13 = player_move_info.m_d3dxvRight.z;
+	mtx._21 = player_move_info.m_d3dxvUp.x;			mtx._22 = player_move_info.m_d3dxvUp.y;			mtx._23 = player_move_info.m_d3dxvUp.z;
+	mtx._31 = player_move_info.m_d3dxvLook.x;		mtx._32 = player_move_info.m_d3dxvLook.y;		mtx._33 = player_move_info.m_d3dxvLook.z;
+	mtx._41 = player_move_info.m_d3dxvPosition.x;	mtx._42 = player_move_info.m_d3dxvPosition.y;	mtx._43 = player_move_info.m_d3dxvPosition.z;
 
-		// character update
-		XMFLOAT4X4 mtx;	XMStoreFloat4x4(&mtx, m_mtxWorld);
-
-		mtx._11 = player_move_info.m_d3dxvRight.x;		mtx._12 = player_move_info.m_d3dxvRight.y;		mtx._13 = player_move_info.m_d3dxvRight.z;
-		mtx._21 = player_move_info.m_d3dxvUp.x;			mtx._22 = player_move_info.m_d3dxvUp.y;			mtx._23 = player_move_info.m_d3dxvUp.z;
-		mtx._31 = player_move_info.m_d3dxvLook.x;		mtx._32 = player_move_info.m_d3dxvLook.y;		mtx._33 = player_move_info.m_d3dxvLook.z;
-		mtx._41 = player_move_info.m_d3dxvPosition.x;	mtx._42 = player_move_info.m_d3dxvPosition.y;	mtx._43 = player_move_info.m_d3dxvPosition.z;
-
-		m_mtxWorld = XMLoadFloat4x4(&mtx);
-
+	m_mtxWorld = XMLoadFloat4x4(&mtx);
 }

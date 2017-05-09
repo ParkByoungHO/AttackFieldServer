@@ -1,40 +1,21 @@
-#include<WinSock2.h>
-#include<windows.h>
-#include<iostream>
-#include<thread>
-#include<mutex>
-#include<list>
-#include<set>
-#include<queue>
-#include<vector>
-
+#include "stdafx.h"
 #include"protocol.h"
 #include"ServerPlayer.h"
 #include"Timer.h"
 
-#define SERVERPORT		9000
+CGameTimer g_GameTimer;
 
-#pragma comment(lib,"Ws2_32")
+CLIENT client[MAX_USER];
+CLIENT other[200];
+PLAYER bullet[100];
 
-#define OP_RECV					1
-#define OP_SEND					2
-#define OP_MOVE					3
+bool g_isShutdown = false;
+HANDLE g_hIocp;
+CRITICAL_SECTION g_CriticalSection;
+CRITICAL_SECTION timer_lock;
+priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-#define		SC_POS				1
-#define		SC_PUT_PLAYER		2
-#define		SC_PUT_Bullet		3
-#define		SC_REMOVE_PLAYER	4
-#define		SC_ROTATE			5
-
-#define MAX_USER				10
-
-#define MAX_BUFFSIZE			4000
-
-
-
-using namespace std;
-
-void Sendpacket(int id, void * packet);
+CServerPlayer serverplayer[10];
 
 void error_display(char *msg, int err_num)
 {
@@ -46,173 +27,6 @@ void error_display(char *msg, int err_num)
 		(LPTSTR)&lpMsgBuf, 0, NULL);
 	printf("[%s] %s", msg, (char *)lpMsgBuf);
 	LocalFree(lpMsgBuf);
-}
-
-struct vector3 {
-	float x;
-	float y;
-	float z;
-
-
-	vector3(int x, int y, int z) :x(x), y(y), z(z) {  };
-	vector3() {};
-	vector3 operator * (float f)
-	{
-		return vector3(f * x, f*y, f * z);
-	}
-
-};
-
-struct PLAYER {		//플레이어 좌표.
-
-	float x;
-	float y;
-	float z;
-
-	bool fire;
-
-
-	DWORD button;
-	vector3 lookvector;
-
-};
-
-
-
-struct Event_timer {		//타이머
-
-	int obj_id;
-	unsigned wakeup_time;
-	int event_id;
-
-};
-
-class mycomparison
-{
-	bool reserve;
-public:
-	bool operator() (const Event_timer lhs, const Event_timer rhs) const
-	{
-		return (lhs.wakeup_time > rhs.wakeup_time);
-	}
-
-};
-
-typedef struct Overlapex {
-	WSAOVERLAPPED	original_overlap;
-	int				operation;
-	WSABUF			recv_buffer;
-	BYTE			socket_buff[MAX_BUFFSIZE];
-	int				packet_size;
-
-};
-
-
-//클라이언트는 확장 오버렙 구조체를 가져야 한다.
-struct CLIENT {
-	int				id;
-	bool			connected;
-	SOCKET			sock;
-	PLAYER			player;
-	Overlapex		recv_overlap;
-	int				previous_data_size;
-	mutex			vl_lock;
-	BYTE			packet[MAX_BUFFSIZE];
-	bool			Team = false;
-
-};
-
-CLIENT client[MAX_USER];
-CLIENT other[200];
-PLAYER bullet[100];
-
-
-bool g_isShutdown = false;
-HANDLE g_hIocp;
-CRITICAL_SECTION g_CriticalSection;
-CRITICAL_SECTION timer_lock;
-priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
-
-CServerPlayer serverplayer[10];
-
-
-void add_timer(int obj_id, int m_sec, int event_type)
-{
-	Event_timer event_object = { obj_id, m_sec + GetTickCount(), event_type };
-	EnterCriticalSection(&timer_lock);
-	p_queue.push(event_object);
-	LeaveCriticalSection(&timer_lock);
-
-}
-
-void SendPositionPacket(int id, int object)
-{
-	sc_packet_pos packet;
-	packet.id = object;
-	packet.size = sizeof(packet);
-	packet.type = SC_POS;
-	packet.x = client[object].player.x;
-	packet.y = client[object].player.y;
-	packet.z = client[object].player.z;
-
-	//cout << packet.x<< " " << packet.y<<" " << packet.z << endl;
-
-	Sendpacket(id, &packet);
-}
-
-void sendbulletfire(int id, int object)
-{
-	sc_bullet_fire  packet;
-	packet.id = object;
-	packet.size = sizeof(packet);
-	packet.type = SC_PUT_Bullet;
-
-	packet.fire = client[object].player.fire;
-
-	Sendpacket(id, &packet);
-	
-}
-
-
-void SendLookPacket(int id, int object)
-{
-	sc_rotate_vector packet;
-	packet.id = object;
-	packet.size = sizeof(packet);
-	packet.type = SC_ROTATE;
-	packet.x = serverplayer[object].getfPitch();
-	packet.y = serverplayer[object].getYaw();
-	packet.z = 0;
-
-	//cout << object << endl;
-	//cout << packet.x << " " << packet.y << " " << packet.z << endl;
-
-	Sendpacket(id, &packet);
-}
-
-void Timer_Thread()
-{
-	while (true)
-	{
-		EnterCriticalSection(&timer_lock);
-		while (!p_queue.empty())
-		{
-			Event_timer top_object = p_queue.top();
-
-			if (top_object.wakeup_time > GetTickCount())
-				break;
-
-			p_queue.pop();
-
-			Overlapex *overlapped = new Overlapex;
-			overlapped->operation = OP_MOVE;
-			ZeroMemory(&overlapped->original_overlap, sizeof(overlapped->original_overlap));
-			PostQueuedCompletionStatus(g_hIocp, 1, top_object.obj_id, reinterpret_cast<LPOVERLAPPED>(&overlapped));
-
-		}
-		LeaveCriticalSection(&timer_lock);
-	}
-
 }
 
 void Sendpacket(int id, void * packet)
@@ -248,6 +62,94 @@ void SendRemovePacket(int client, int object)
 	Sendpacket(client, &remove_player);
 }
 
+void add_timer(int obj_id, int m_sec, int event_type)
+{
+	Event_timer event_object = { obj_id, m_sec + GetTickCount(), event_type };
+	EnterCriticalSection(&timer_lock);
+	p_queue.push(event_object);
+	LeaveCriticalSection(&timer_lock);
+
+}
+
+void SendPositionPacket(int id, int object)
+{
+	sc_packet_pos packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_POS;
+	packet.x = client[object].player.x;
+	packet.y = client[object].player.y;
+	packet.z = client[object].player.z;
+	packet.Hp = client[object].player.Hp;
+	packet.Animation = client[object].player.Animation;
+
+
+
+	//cout << object << endl;
+	//ShowXMVector(packet.Animation);
+
+	//cout << packet.x<< " " << packet.y<<" " << packet.z << endl;
+
+	Sendpacket(id, &packet);
+}
+
+void sendbulletfire(int id, int object)
+{
+	sc_bullet_fire  packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_PUT_Bullet;
+
+	packet.fire = client[object].player.fire;
+	packet.FireDirection = client[object].player.FireDirecton;
+
+	Sendpacket(id, &packet);
+	
+}
+
+void SendLookPacket(int id, int object)
+{
+	sc_rotate_vector packet;
+	packet.id = object;
+	packet.size = sizeof(packet);
+	packet.type = SC_ROTATE;
+	packet.x = serverplayer[object].getfPitch();
+	packet.y = serverplayer[object].getYaw();
+	packet.z = 0;
+
+	//cout << object << endl;
+	//cout << packet.x << " " << packet.y << " " << packet.z << endl;
+
+	Sendpacket(id, &packet);
+}
+
+void Timer_Thread()
+{
+	while (true)
+	{
+		g_GameTimer.Tick(60);
+
+		EnterCriticalSection(&timer_lock);
+		while (!p_queue.empty())
+		{
+			Event_timer top_object = p_queue.top();
+
+			if (top_object.wakeup_time > GetTickCount())
+				break;
+
+			p_queue.pop();
+
+			Overlapex *overlapped = new Overlapex;
+			overlapped->operation = OP_MOVE;
+			ZeroMemory(&overlapped->original_overlap, sizeof(overlapped->original_overlap));
+			PostQueuedCompletionStatus(g_hIocp, 1, top_object.obj_id, reinterpret_cast<LPOVERLAPPED>(&overlapped));
+
+		}
+		LeaveCriticalSection(&timer_lock);
+	}
+
+}
+
 void Disconnected(int ci)
 {
 	closesocket(client[ci].sock);
@@ -280,24 +182,6 @@ void Initialize_server()
 
 }
 
-
-
-
-void SendMovePacket(int client, int npcID)
-{
-	sc_packet_pos  packet;
-
-	packet.id = 500 + npcID;
-	packet.size = sizeof(sc_packet_pos);
-	packet.type = SC_POS;
-	packet.x = other[npcID].player.x;
-	packet.y = other[npcID].player.y;
-	packet.z = other[npcID].player.z;
-	Sendpacket(client, reinterpret_cast<unsigned char*>(&packet));
-
-	//cout << packet.id << endl;
-}
-
 void SendPutPlayerPacket(int clients, int player)
 {
 	sc_packet_put_player packet;
@@ -308,42 +192,47 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.x = client[player].player.x;
 	packet.y = client[player].player.y;
 	packet.z = client[player].player.z;
+	packet.hp = client[player].player.Hp;
+	packet.Animation = client[player].player.Animation;
 
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
 }
-
-CTimer timer1;
-
 
 void processpacket(int id, unsigned char *packet)
 {
 	//패킷 종류별로 처리가 달라진다.
 	// 0 size 1 type
-	cs_key_input key_button;
-	cs_rotate rotate;
+	cs_key_input *key_button;
+	cs_rotate *rotate;
 
 	BYTE packet_type = packet[1];
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
-		memcpy(&key_button, packet, packet[0]);
-		//client[id].player.x = key_button.x;
-		//client[id].player.y = key_button.y;
-		//client[id].player.z = key_button.z;
-		//client[id].player.button = key_button.key_button;
-		client[id].player.button = key_button.key_button;
+		key_button = reinterpret_cast<cs_key_input *>(packet);
+		// memcpy(&key_button, packet, packet[0]);
+		client[id].player.x = key_button->x;
+		client[id].player.y = key_button->y;
+		client[id].player.z = key_button->z;
+		client[id].player.Hp = key_button->Hp;
 
+		client[id].player.button = key_button->key_button;
+		client[id].player.FireDirecton = key_button->FireDirection;
+
+		//cout << key_button->key_button << endl;
+		
 		client[id].vl_lock.lock();
 		serverplayer[id].Setkey(client[id].player.button);
-		serverplayer[id].UpdateKeyInput(0.15);
+		//serverplayer[id].UpdateKeyInput(0.15);
 		//serverplayer[id].Update(0.015);
 
 		client[id].vl_lock.unlock();
 
 
-		client[id].player.x = serverplayer[id].GetPosition().x;
-		client[id].player.y = 2;//serverplayer.GetPosition().y;
-		client[id].player.z = serverplayer[id].GetPosition().z;
+		//client[id].player.x = serverplayer[id].Getd3dxvVelocity().x;
+		//client[id].player.y = 
+		//client[id].player.z = serverplayer[id].Getd3dxvVelocity().z;
+		client[id].player.Animation = key_button->Animation;
 		client[id].player.fire = serverplayer[id].Getfire();
 		//cout << key_button.key_button<<endl;
 		//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
@@ -361,15 +250,21 @@ void processpacket(int id, unsigned char *packet)
 
 			}
 		}
+
+		//cout << serverplayer[id].Getd3dxvVelocity().x<<" "<< serverplayer[id].Getd3dxvVelocity().y<<" "<< serverplayer[id].Getd3dxvVelocity().z<<endl;
 		client[id].player.button = 0;
 		client[id].player.fire = false;
 		serverplayer[id].setfire(false);
+		serverplayer[id].Setkey(0);
+		serverplayer[id].Setd3dxvVelocity(0, 0, 0);
+		client[id].player.Animation = { 0,0,0 };
 		break;
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
-		memcpy(&rotate, packet, packet[0]);
+		//memcpy(&rotate, packet, packet[0]);
+		rotate = reinterpret_cast<cs_rotate *>(packet);
 		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
 		client[id].vl_lock.lock();
-		serverplayer[id].Rotate(rotate.cx, rotate.cy);
+		serverplayer[id].Rotate(rotate->cx, rotate->cy);
 		client[id].vl_lock.unlock();
 		client[id].player.lookvector.x = serverplayer[id].GetLookvector().x;
 		client[id].player.lookvector.y = serverplayer[id].GetLookvector().y;
@@ -388,7 +283,7 @@ void processpacket(int id, unsigned char *packet)
 	case 3:		//총을 쐈을때 처리를 해야한다.
 		break;
 	default:
-		cout << "unknow packet : " << (int)packet[1];
+		cout << "unknow packet : " << (int)packet[1]<<endl;
 		break;
 
 	}
@@ -433,15 +328,17 @@ void Accept_thread()
 		SOCKET new_client = ::WSAAccept(accept_socket, reinterpret_cast<SOCKADDR *>(&client_addr), &add_size, NULL, NULL);
 
 		//새로운 아이디 할당
-		int new_id = -1;
-		for (int i = 0; i < MAX_USER; ++i)
-		{
-			if (client[i].connected == false)
-			{
-				new_id = i;
-				break;
-			}
-		}
+		//static int new_id = -1;
+		//for (int i = 0; i < MAX_USER; ++i)
+		//{
+		//	if (client[i].connected == false)
+		//	{
+		//		new_id = i;
+		//		break;
+		//	}
+		//}
+
+		static int new_id = 0;
 
 		if (new_id == -1)
 		{
@@ -472,13 +369,18 @@ void Accept_thread()
 		}
 		else
 		{
-			client[new_id].player.x = 265;
+			client[new_id].player.x = 65;
 			client[new_id].player.y = 2;
-			client[new_id].player.z = 230;
+			client[new_id].player.z = 25;
 		}
+		client[new_id].player.Hp = 100;
+
+		client[new_id].player.Animation = { 0,0,0 };
 		client[new_id].recv_overlap.operation = OP_RECV;
 		client[new_id].recv_overlap.packet_size = 0;
 		client[new_id].previous_data_size = 0;
+		client[new_id].player.FireDirecton = { 0,0,0 };
+
 		LeaveCriticalSection(&g_CriticalSection);
 
 
@@ -490,6 +392,8 @@ void Accept_thread()
 		put_player_packet.x = client[new_id].player.x;
 		put_player_packet.y = client[new_id].player.y;
 		put_player_packet.z = client[new_id].player.z;
+		put_player_packet.hp = client[new_id].player.Hp;
+		put_player_packet.Animation = client[new_id].player.Animation;
 
 		//입출력 포트와 클라이언트 연결
 		CreateIoCompletionPort(reinterpret_cast<HANDLE>(new_client), g_hIocp, new_id, 0);
@@ -524,8 +428,10 @@ void Accept_thread()
 				error_display("AcceptThread : WSARecv ", error_num);
 			}
 
+			new_id++;
 		}
 	}
+	
 }
 
 
@@ -590,7 +496,7 @@ void worker_Thread()
 						client[key].previous_data_size += remained;
 						remained = 0;
 						pBuff++;
-					} 
+					}
 
 				}
 				DWORD flags = 0;
@@ -602,14 +508,7 @@ void worker_Thread()
 				delete overlap;
 				break;
 			case OP_MOVE:
-				for (int i = 0; i < 10; i++)
-				{
 
-					if (client[i].connected == false) continue;
-					client[i].vl_lock.lock();
-				//	SendMovePacket(i, key - 500);
-					client[i].vl_lock.unlock();
-				}
 				add_timer(key, 1000, OP_MOVE);
 				break;
 			default:
@@ -618,22 +517,14 @@ void worker_Thread()
 				while (true);
 				break;
 			}
-
 		}
-
 	}
-
-
 }
-
 
 int main(int argv, char* argc[])
 {
-
-	timer1.SetTimer(20);
-
 	thread* pAcceptThread;
-	//thread* pTimerThread;
+	thread* pTimerThread;
 
 	vector<thread*> vpThread;
 
@@ -651,7 +542,7 @@ int main(int argv, char* argc[])
 	}
 
 	pAcceptThread = new thread(Accept_thread);
-	//pTimerThread = new thread(Timer_Thread);
+	pTimerThread = new thread(Timer_Thread);
 
 
 	while (g_isShutdown == false) {
