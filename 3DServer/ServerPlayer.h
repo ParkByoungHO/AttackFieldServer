@@ -79,7 +79,7 @@ public:
 
 
 	int GetPlayerHp() { return m_HP; }
-	int SetPlayerHp(BYTE hp) { return m_HP = hp; }
+	void SetPlayerHp(int hp) { m_HP = hp;  m_life = false; }
 	void DamegeplayerHp(int damage)
 	{
 		if (m_HP <= damage) {
@@ -90,6 +90,7 @@ public:
 			m_HP -= damage;
 	}
 
+	bool Getlife() { return m_life; }
 	bool Getfire() { return m_fire; }
 	
 	void SetAnimation(XMFLOAT3 Animation) { player_move_info.Animation = Animation; }

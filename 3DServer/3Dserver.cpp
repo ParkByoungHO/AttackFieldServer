@@ -15,7 +15,11 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
- 
+BYTE Goal_Kill = 100;
+BYTE Red_Kill = 0;
+BYTE Blue_kill = 0;
+
+
 
 void error_display(char *msg, int err_num)
 {
@@ -210,9 +214,23 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.z = client[player].player.GetPosition().z;
 	packet.hp = client[player].player.GetPlayerHp();
 	packet.Animation = client[player].player.GetAnimation();
-	packet.Charid = client[player].player.GetCharid();
+	packet.Goal = Goal_Kill;
+	packet.RED = Red_Kill;
+	packet.Blue = Blue_kill;
 
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
+}
+
+void SendSystemPacket(int client)
+{
+	SC_System_kill packet;
+
+	packet.type = SC_SYSTEM;
+	packet.size = sizeof(packet);
+	packet.RED = Red_Kill;
+	packet.BLUE = Blue_kill;
+
+	Sendpacket(client, reinterpret_cast<unsigned char*>(&packet));
 }
 
 void SendPlayerHppacket(int clients, int player, bool Head)
@@ -224,7 +242,7 @@ void SendPlayerHppacket(int clients, int player, bool Head)
 	packet.Hp = client[player].player.GetPlayerHp();
 	packet.id = player;
 	packet.Head = Head;
-
+	packet.live = client[player].player.Getlife();
 	
 
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
@@ -246,7 +264,6 @@ void processpacket(int id, unsigned char *packet)
 		// memcpy(&key_button, packet, packet[0]);
 		client[id].vl_lock.lock();
 		client[id].player.SetPosition(Temp);
-		client[id].player.SetPlayerHp(key_button->Hp);
 		client[id].player.Setkey(key_button->key_button);
 		client[id].player.SetFireDirection(key_button->FireDirection);
 		client[id].player.SetAnimation(key_button->Animation);
@@ -312,9 +329,10 @@ void processpacket(int id, unsigned char *packet)
 		bool isCollisionSC = false;
 
 		int i = 0;
+		
 		for (auto &character : COLLISION_MGR->m_vecCharacterContainer)
 		{
-			
+		
 			client[i].vl_lock.lock();
 			character->SetWorldMatirx(client[i].player.GetWorldMatrix());
 			client[i].vl_lock.unlock();
@@ -323,12 +341,13 @@ void processpacket(int id, unsigned char *packet)
 		}
 	
 		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
-
+			
 		if (isCollisionSC) {
-			client[info.m_nObjectID].vl_lock.lock();
-			SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
-			client[info.m_nObjectID].vl_lock.unlock();
-		}
+				client[info.m_nObjectID].vl_lock.lock();
+				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team)
+					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
+				client[info.m_nObjectID].vl_lock.unlock();
+			}
 		break;
 	}
 	case CS_HEAD_HIT:
@@ -356,10 +375,26 @@ void processpacket(int id, unsigned char *packet)
 			{
 				client[i].vl_lock.lock();
 				SendPlayerHppacket(i, Hit->id , Hit->Head);
+	
 				client[i].vl_lock.unlock();
 
 			}
 
+		}
+		for (int i = 0; i < MAX_USER; i++)
+		{ 
+			if (client[i].connected)
+			{
+				if(client[i].player.GetPlayerHp() <= 0)
+				{
+					if (client[i].Red_Team)
+						Blue_kill++;
+					else
+						Red_Kill++;	
+					client[i].player.SetPlayerHp(100);		//피를 100만들어주고
+				}
+				SendSystemPacket(i);
+			}
 		}
 	}
 		break;
@@ -368,6 +403,7 @@ void processpacket(int id, unsigned char *packet)
 		break;
 	
 	}
+
 }
 
 void Accept_thread()
@@ -422,14 +458,13 @@ void Accept_thread()
 		client[new_id].sock = new_client;
 		client[new_id].player.setid(new_id);
 
-		if (client[new_id].player.Getid() % 2 == 0)
-			client[new_id].Team = true;
+		if (client[new_id].player.Getid() % 2 == 0)	//짝수일때 레드팀
+			client[new_id].Red_Team = true;
 
 
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
-		if (client[new_id].Team)
+		if (client[new_id].Red_Team)
 		{
-
 			client[new_id].player.SetPosition(XMFLOAT3(60,2,12));
 
 		}

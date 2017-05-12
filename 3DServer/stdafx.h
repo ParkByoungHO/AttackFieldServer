@@ -39,6 +39,7 @@ using namespace DirectX::PackedVector;
 #define	SC_ROTATE			5
 #define	SC_ColliSion		6
 #define SC_PUT_HP			7
+#define SC_SYSTEM			8
 
 #define MAX_USER			10
 
@@ -151,6 +152,6 @@ struct CLIENT {
 	int				previous_data_size;
 	mutex			vl_lock;
 	BYTE			packet[MAX_BUFFSIZE];
-	bool			Team = false;
+	bool			Red_Team = false;
 	CServerPlayer	player;
 };

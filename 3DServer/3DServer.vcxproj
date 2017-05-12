@@ -84,9 +84,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>D:\DirectX SDK\Include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\박병호\Source\Repos\3.2 3DServer - %284.8%29\DirectX\Include;$(IncludePath)</IncludePath>
     <ReferencePath>$(ReferencePath)</ReferencePath>
-    <LibraryPath>D:\DirectX SDK\Lib\x64;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\박병호\Source\Repos\3.2 3DServer - %284.8%29\DirectX\Lib;D:\DirectX SDK\Lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

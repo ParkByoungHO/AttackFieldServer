@@ -141,6 +141,7 @@ void CServerPlayer::Update(float fTimeElapsed)
 	mtx._41 = player_move_info.m_d3dxvPosition.x;	mtx._42 = player_move_info.m_d3dxvPosition.y;	mtx._43 = player_move_info.m_d3dxvPosition.z;
 
 	m_mtxWorld = XMLoadFloat4x4(&mtx);
+
 }
 
 
