@@ -47,11 +47,18 @@ private:
 	WORD			 m_wKeyState = 0;
 	PLAYER_MOVE_INFO player_move_info;
 
-	XMMATRIX	m_mtxWorld = XMMatrixIdentity();
+	XMMATRIX		m_mtxWorld = XMMatrixIdentity();
 
-	BYTE m_HP = 100;
-	int  m_id = 0;
-	bool m_fire = false;
+	int				m_HP = 100;
+	int				m_id = 0;
+	int				m_Charid = 0;	//클라에서 컨테이너가 0으로 시작하는데 자기자신이 0으로 들어간다.
+									//그래서 다른캐릭터 움직이려면 1부터 시작해야 하므로 main에서 static int를 선언해
+									//접속하면 값을 계속 ++해서 넣어줘야 한다.
+
+
+	bool			m_life = false;	//죽으면 true가 되고 리스폰 구현할 예정.
+	bool			m_fire = false;	//총 발포
+
 	
 public:
 	CServerPlayer();
@@ -67,12 +74,21 @@ public:
 	void Update(float fTimeElapsed);
 	float getfPitch() { return player_move_info.m_fPitch; }
 	float getYaw() { return player_move_info.m_fYaw; }
-	void Setkey(DWORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); }
+	void Setkey(DWORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); Update(0.15); }
 	void setfire(bool fire) { m_fire = fire; }
 
 
-	BYTE GetHp() { return m_HP; }
-	void SetHp(BYTE hp) { m_HP = hp; }
+	int GetPlayerHp() { return m_HP; }
+	int SetPlayerHp(BYTE hp) { return m_HP = hp; }
+	void DamegeplayerHp(int damage)
+	{
+		if (m_HP <= damage) {
+			m_HP = 0;
+			m_life = true;
+		}
+		else
+			m_HP -= damage;
+	}
 
 	bool Getfire() { return m_fire; }
 	
@@ -83,33 +99,24 @@ public:
 	void SetFireDirection(XMFLOAT3	fireDirection) { player_move_info.FireDirection = fireDirection; }
 	XMFLOAT3 GetFireDirection() { return player_move_info.FireDirection; }
 
+	XMMATRIX GetWorldMatrix() { return m_mtxWorld; }
 
 
 
-	void setid(int id) { 
-		m_id = id; 
 
-		if (m_id % 2 == 0)
-		{
-			player_move_info.m_d3dxvPosition.x = 65;
-			player_move_info.m_d3dxvPosition.y = 2;
-			player_move_info.m_d3dxvPosition.z = 12;
-		}
-		else
-		{
-			player_move_info.m_d3dxvPosition.x = 60;
-			player_move_info.m_d3dxvPosition.y = 2;
-			player_move_info.m_d3dxvPosition.z = 20;
-		}
-	}
+	void setid (int id); 
+	int  Getid() const { return m_id; }
 
-	XMFLOAT3 Getd3dxvVelocity()
+	void SetCharid(int id) { m_Charid = id; }
+	int  GetCharid() const { return m_Charid; }
+
+	XMFLOAT3 const Getd3dxvVelocity()
 	{
 		return player_move_info.m_d3dxvVelocity;
 	}
 	
 
-	XMFLOAT3 GetPosition()
+	XMFLOAT3 const GetPosition()
 	{
 		return player_move_info.m_d3dxvPosition;
 	}
@@ -121,18 +128,12 @@ public:
 		player_move_info.m_d3dxvVelocity.z = z;
 	}
 
-	XMVECTOR& GetLook()
+	XMVECTOR const GetLook()
 	{
 		//std::cout << player_move_info.m_d3dxvLook.x << " " << player_move_info.m_d3dxvLook.z << std::endl;
 		auto m_xmVector = XMVectorSet(player_move_info.m_d3dxvLook.x, player_move_info.m_d3dxvLook.y, player_move_info.m_d3dxvLook.z, 0.0f);
 		m_xmVector = XMVector3Normalize(m_xmVector);
 		return(m_xmVector);
 	}
-
-	XMFLOAT3& GetLookvector()
-	{
-		return player_move_info.m_d3dxvLook;
-	}
-
 };
 

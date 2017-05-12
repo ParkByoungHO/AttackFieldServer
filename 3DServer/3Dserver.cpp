@@ -75,12 +75,13 @@ void SendPositionPacket(int id, int object)
 {
 	sc_packet_pos packet;
 	packet.id = object;
+	packet.Charid = client[object].player.GetCharid();
 	packet.size = sizeof(packet);
 	packet.type = SC_POS;
 	packet.x = client[object].player.GetPosition().x;
 	packet.y = client[object].player.GetPosition().y;
 	packet.z = client[object].player.GetPosition().z;
-	packet.Hp = client[object].player.GetHp();
+	packet.Hp = client[object].player.GetPlayerHp();
 	packet.Animation = client[object].player.GetAnimation();
 
 
@@ -97,6 +98,8 @@ void sendbulletfire(int id, int object)
 {
 	sc_bullet_fire  packet;
 	packet.id = object;
+	packet.Charid = client[object].player.GetCharid();
+
 	packet.size = sizeof(packet);
 	packet.type = SC_PUT_Bullet;
 
@@ -111,28 +114,29 @@ void SendLookPacket(int id, int object)
 {
 	sc_rotate_vector packet;
 	packet.id = object;
+	packet.Charid = client[object].player.GetCharid();
+
 	packet.size = sizeof(packet);
 	packet.type = SC_ROTATE;
+
 	packet.x = client[object].player.getfPitch();
 	packet.y = client[object].player.getYaw();
 	packet.z = 0;
 
-	//cout << object << endl;
-	//cout << packet.x << " " << packet.y << " " << packet.z << endl;
-
 	Sendpacket(id, &packet);
 }
 
-void SendCollisonPacket(int id, int object, bool collision)
+void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, XMFLOAT3 direction)
 {
 	SC_Collison packet;
 	packet.size = sizeof(SC_Collison);
 	packet.id = object;
 	packet.type = SC_ColliSion;
 	packet.collision = collision;
+	packet.position = position;
+	packet.direction = direction;
 
 	Sendpacket(id, &packet);
-
 }
 
 void Timer_Thread()
@@ -204,8 +208,24 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.x = client[player].player.GetPosition().x;
 	packet.y = client[player].player.GetPosition().y;
 	packet.z = client[player].player.GetPosition().z;
-	packet.hp = client[player].player.GetHp();
+	packet.hp = client[player].player.GetPlayerHp();
 	packet.Animation = client[player].player.GetAnimation();
+	packet.Charid = client[player].player.GetCharid();
+
+	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
+}
+
+void SendPlayerHppacket(int clients, int player, bool Head)
+{
+	SC_Player_Hp packet;
+
+	packet.type = SC_PUT_HP;
+	packet.size = sizeof(packet);
+	packet.Hp = client[player].player.GetPlayerHp();
+	packet.id = player;
+	packet.Head = Head;
+
+	
 
 	Sendpacket(clients, reinterpret_cast<unsigned char*>(&packet));
 }
@@ -226,7 +246,7 @@ void processpacket(int id, unsigned char *packet)
 		// memcpy(&key_button, packet, packet[0]);
 		client[id].vl_lock.lock();
 		client[id].player.SetPosition(Temp);
-		client[id].player.SetHp(key_button->Hp);
+		client[id].player.SetPlayerHp(key_button->Hp);
 		client[id].player.Setkey(key_button->key_button);
 		client[id].player.SetFireDirection(key_button->FireDirection);
 		client[id].player.SetAnimation(key_button->Animation);
@@ -290,54 +310,65 @@ void processpacket(int id, unsigned char *packet)
 		weapon = reinterpret_cast<cs_weapon *>(packet);
 		CollisionInfo info;
 		bool isCollisionSC = false;
-		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
-		//이걸 클라에게 보냈어
-		if (isCollisionSC) {
-			cout << info.m_nObjectID;
-			//클라에게 불변수 보낸다.
-			for (int i = 0; i < MAX_USER; i++)
-			{
-				if (client[i].connected == true)
-				{
-					client[i].vl_lock.lock();
-					SendCollisonPacket(i, id, isCollisionSC);
-					client[i].vl_lock.unlock();
-				}
-			}
 
+		int i = 0;
+		for (auto &character : COLLISION_MGR->m_vecCharacterContainer)
+		{
+			
+			client[i].vl_lock.lock();
+			character->SetWorldMatirx(client[i].player.GetWorldMatrix());
+			client[i].vl_lock.unlock();
+			//ShowXMMatrix(character->GetWorldMatrix());
+			i++;
+		}
+	
+		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+
+		if (isCollisionSC) {
+			client[info.m_nObjectID].vl_lock.lock();
+			SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
+			client[info.m_nObjectID].vl_lock.unlock();
 		}
 		break;
 	}
 	case CS_HEAD_HIT:
 	{
+		static int count = 0;
+
+
 		CS_Head_Collison	*Hit;
 		Hit = reinterpret_cast<CS_Head_Collison *>(packet);
-		if (!Hit->Head)
-			client[id].player.SetHp(client[id].player.GetHp() - 30);
-		else
-			client[id].player.SetHp(client[id].player.GetHp() - 75);
+		if (Hit->Head) {
+			client[Hit->id].vl_lock.lock();
+			client[Hit->id].player.DamegeplayerHp(70);
+			client[Hit->id].vl_lock.unlock();
+			cout << "head" << endl;
+		}
+		else {
+			client[Hit->id].vl_lock.lock();
+			client[Hit->id].player.DamegeplayerHp(30);
+			client[Hit->id].vl_lock.unlock();
+
+		}
+		for (int i = 0; i < MAX_USER; i++)
+		{
+			if (client[i].connected)
+			{
+				client[i].vl_lock.lock();
+				SendPlayerHppacket(i, Hit->id , Hit->Head);
+				client[i].vl_lock.unlock();
+
+			}
+
+		}
+	}
 		break;
 	default:
 		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;
-	}
-	}
-
-
-	//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
-	//cout << client[id].player.Bulletlist->x << " " << client[id].y << " " << client[id].z << endl;
-
-
-
 	
-	
-
-
+	}
 }
-
-
-
-
 
 void Accept_thread()
 {
@@ -374,6 +405,7 @@ void Accept_thread()
 		//}
 
 		static int new_id = 0;
+		static int char_id = 1;
 
 		if (new_id == -1)
 		{
@@ -388,49 +420,37 @@ void Accept_thread()
 		// 재활용 될 소켓이므로 초기화해주어야 한다.
 		client[new_id].connected = true;
 		client[new_id].sock = new_client;
-		client[new_id].id = new_id;
 		client[new_id].player.setid(new_id);
 
-		if (client[new_id].id % 2 == 0)
+		if (client[new_id].player.Getid() % 2 == 0)
 			client[new_id].Team = true;
 
 
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
 		if (client[new_id].Team)
 		{
-			XMFLOAT3 Temp(60,2,12);
-			client[new_id].player.SetPosition(Temp);
+
+			client[new_id].player.SetPosition(XMFLOAT3(60,2,12));
 
 		}
 		else
 		{
-			XMFLOAT3 Temp(65,2, 25);
-			client[new_id].player.SetPosition(Temp);
+			client[new_id].player.SetPosition(XMFLOAT3(65,2,25));
 		}
-		client[new_id].player.SetHp(100);
+
 
 		client[new_id].player.SetAnimation(XMFLOAT3(0,0,0));
 		client[new_id].recv_overlap.operation = OP_RECV;
 		client[new_id].recv_overlap.packet_size = 0;
 		client[new_id].previous_data_size = 0;
 		client[new_id].player.SetFireDirection(XMFLOAT3(0,0,0));
+		client[new_id].player.SetCharid(char_id++);
 
 		LeaveCriticalSection(&g_CriticalSection);
+		
 
-
-		//여기에 담아서 보낸다.
-		sc_packet_put_player put_player_packet;
-		put_player_packet.id = new_id;
-		put_player_packet.size = sizeof(put_player_packet);
-		put_player_packet.type = SC_PUT_PLAYER;
-		put_player_packet.x = client[new_id].player.GetPosition().x;
-		put_player_packet.y = client[new_id].player.GetPosition().y;
-		put_player_packet.z = client[new_id].player.GetPosition().z;
-		put_player_packet.hp = client[new_id].player.GetHp();
-		put_player_packet.Animation = client[new_id].player.GetAnimation();
-
-		//CCharacterObject* pCharacter = new CCharacterObject();
-		//COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
+		CCharacterObject* pCharacter = new CCharacterObject();
+		COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
 		//입출력 포트와 클라이언트 연결
 		CreateIoCompletionPort(reinterpret_cast<HANDLE>(new_client), g_hIocp, new_id, 0);
 
@@ -470,8 +490,6 @@ void Accept_thread()
 	
 }
 
-
-
 void worker_Thread()
 {
 	DWORD io_size;
@@ -487,11 +505,11 @@ void worker_Thread()
 		{
 			std::cout << "Error in GQCS\n";
 			int err_no = WSAGetLastError();
-			if (err_no == 64) Disconnected(key);
+			if (err_no == 64) Disconnected(int(key));
 			while (true);
 		}
 		if (0 == io_size) {
-			Disconnected(key);
+			Disconnected(int(key));
 			continue;
 		}
 		
@@ -518,7 +536,7 @@ void worker_Thread()
 					{
 						//지난번에 받은 데이터 뒷부분에 복사
 						memcpy(client[key].packet + client[key].previous_data_size, pBuff, required);
-						processpacket(key, reinterpret_cast<BYTE *>(&client[key].packet));
+						processpacket((int)key, reinterpret_cast<BYTE *>(&client[key].packet));
 						remained -= required;
 						pBuff += required;
 						client[key].recv_overlap.packet_size = 0;
@@ -545,7 +563,7 @@ void worker_Thread()
 				break;
 			case OP_MOVE:
 
-				add_timer(key, 1000, OP_MOVE);
+				add_timer((int)key, 1000, OP_MOVE);
 				break;
 			default:
 				cout << overlap->operation;
@@ -571,7 +589,7 @@ int main(int argv, char* argc[])
 	GetSystemInfo(&sys_info);
 
 
-	for (int i = 0; i < sys_info.dwNumberOfProcessors * 2; ++i)
+	for (unsigned int i = 0; i < sys_info.dwNumberOfProcessors * 2; ++i)
 	{
 		vpThread.push_back(new thread(worker_Thread));
 

@@ -142,3 +142,22 @@ void CServerPlayer::Update(float fTimeElapsed)
 
 	m_mtxWorld = XMLoadFloat4x4(&mtx);
 }
+
+
+void CServerPlayer :: setid(int id) 
+{
+	m_id = id;
+
+	if (m_id % 2 == 0)
+	{
+		player_move_info.m_d3dxvPosition.x = 65;
+		player_move_info.m_d3dxvPosition.y = 2;
+		player_move_info.m_d3dxvPosition.z = 12;
+	}
+	else
+	{
+		player_move_info.m_d3dxvPosition.x = 60;
+		player_move_info.m_d3dxvPosition.y = 2;
+		player_move_info.m_d3dxvPosition.z = 20;
+	}
+}

@@ -38,6 +38,7 @@ using namespace DirectX::PackedVector;
 #define	SC_REMOVE_PLAYER	4
 #define	SC_ROTATE			5
 #define	SC_ColliSion		6
+#define SC_PUT_HP			7
 
 #define MAX_USER			10
 
@@ -64,6 +65,34 @@ inline void ShowXMVector(XMVECTOR xmVector)
 	XMFLOAT4 out;
 	XMStoreFloat4(&out, xmVector);
 	cout << out.x << ", " << out.y << ", " << out.z << ", " << out.w << endl;
+}
+
+inline void ShowXMMatrix(XMMATRIX& mtx)
+{
+	XMFLOAT4X4 mtxOut;
+	XMStoreFloat4x4(&mtxOut, mtx);
+	cout << mtxOut._11 << ", " << mtxOut._12 << ", " << mtxOut._13 << ", " << mtxOut._14 << endl;
+	cout << mtxOut._21 << ", " << mtxOut._22 << ", " << mtxOut._23 << ", " << mtxOut._24 << endl;
+	cout << mtxOut._31 << ", " << mtxOut._32 << ", " << mtxOut._33 << ", " << mtxOut._34 << endl;
+	cout << mtxOut._41 << ", " << mtxOut._42 << ", " << mtxOut._43 << ", " << mtxOut._44 << endl << endl;
+}
+
+inline void ShowXMFloat4x4(XMFLOAT4X4& mtx)
+{
+	cout << mtx._11 << ", " << mtx._12 << ", " << mtx._13 << ", " << mtx._14 << endl;
+	cout << mtx._21 << ", " << mtx._22 << ", " << mtx._23 << ", " << mtx._24 << endl;
+	cout << mtx._31 << ", " << mtx._32 << ", " << mtx._33 << ", " << mtx._34 << endl;
+	cout << mtx._41 << ", " << mtx._42 << ", " << mtx._43 << ", " << mtx._44 << endl << endl;
+}
+
+inline void ShowXMFloat4(XMFLOAT4& xmf4)
+{
+	cout << xmf4.x << ", " << xmf4.y << ", " << xmf4.z << ", " << xmf4.w << endl;
+}
+
+inline void ShowXMFloat3(XMFLOAT3& xmf3)
+{
+	cout << xmf3.x << ", " << xmf3.y << ", " << xmf3.z << endl;
 }
 
 struct PLAYER {		//플레이어 좌표.
@@ -105,7 +134,7 @@ public:
 
 };
 
-typedef struct Overlapex {
+struct Overlapex {
 	WSAOVERLAPPED	original_overlap;
 	int				operation;
 	WSABUF			recv_buffer;
@@ -115,7 +144,7 @@ typedef struct Overlapex {
 };
 
 struct CLIENT {
-	int				id;
+	//int				id;
 	bool			connected;
 	SOCKET			sock;
 	Overlapex		recv_overlap;

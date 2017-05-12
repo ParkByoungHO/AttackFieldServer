@@ -40,10 +40,11 @@ struct cs_rotate {	//클라에서 화면을 움직였을때
 
 struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 
-	BYTE size;
+	BYTE size;	  
 	BYTE type;
 
 	WORD id;
+	WORD Charid;
 
 	float x;
 	float y;
@@ -51,6 +52,8 @@ struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 
 	XMFLOAT3 Animation;
 	BYTE hp;
+
+	//총 31Byte;
 };
 
 struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다. 
@@ -59,7 +62,7 @@ struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다.
 	BYTE type;
 
 	WORD id;
-	
+	WORD Charid;
 
 	float x;
 	float y;
@@ -75,6 +78,7 @@ struct sc_rotate_vector	//처리된 lookvector를 보낸다.
 	BYTE type;
 
 	WORD id;
+	WORD Charid;
 
 	float x;
 	float y;
@@ -87,6 +91,7 @@ struct sc_bullet_fire
 	BYTE type;
 
 	WORD id;
+	WORD Charid;
 
 	bool fire;
 	
@@ -114,7 +119,11 @@ struct SC_Collison
 	BYTE type;
 
 	WORD id;
+	//WORD Charid;
+
 	BOOL collision;
+	XMFLOAT3 position;
+	XMFLOAT3 direction;
 };
 
 struct CS_Head_Collison
@@ -124,5 +133,16 @@ struct CS_Head_Collison
 
 	BOOL Head;
 
+	BYTE id;
+};
+
+struct SC_Player_Hp
+{
+	BYTE size;
+	BYTE type;
+
+	BYTE Hp;
+	BYTE id;
+	BOOL Head;
 };
 #pragma pack(pop)

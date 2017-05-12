@@ -86,6 +86,9 @@ public:
 	void SetIsHeadHit(bool set) { m_bIsHeadHit = set; }
 	bool GetIsHeadHit() const { return m_bIsHeadHit; }
 	
+	void SetWorldMatirx(XMMATRIX world) { m_mtxWorld = world; }
+	XMMATRIX GetWorldMatrix() { return m_mtxWorld;  }
+
 	// ----- Game System Function ----- //
 	void SetLife(UINT life) { m_nLife = life; }
 	UINT GetLife() const { return m_nLife; }

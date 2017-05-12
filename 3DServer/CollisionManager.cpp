@@ -67,6 +67,8 @@ bool CCollisionManager::RayCastCollision(CollisionInfo& info, XMVECTOR originPos
 
 bool CCollisionManager::RayCastCollisionToCharacter(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction)	//캐릭터 충돌 함수.
 {
+	//(originPos);
+	//ShowXMVector(direction);
 	// 1차 Sphere
 	if (!RayCastCollisionToCharacter_Sphere(info, originPos, direction))	//이거먼저
 		return false;
@@ -110,12 +112,16 @@ bool CCollisionManager::RayCastCollisionToCharacter_Sphere(CollisionInfo& info, 
 	float fDist = 0;
 	bool isCollision = false;
 
+	//ShowXMVector(originPos);
+	//ShowXMVector(direction);
 	for (auto& character : m_vecCharacterContainer) {
-		if (character->GetBoundingSphere(0).Intersects(originPos, direction, info.m_fDistance)) {
-			if (fNearestDistance > info.m_fDistance) {
-				fNearestDistance = info.m_fDistance;
-				pNearestObject = character;
-				isCollision = true;
+		if (character->GetBoundingSphere().Intersects(originPos, direction, info.m_fDistance)) {
+			if (character->GetBoundingSphere().Radius < info.m_fDistance) {
+				if (fNearestDistance > info.m_fDistance) {
+					fNearestDistance = info.m_fDistance;
+					pNearestObject = character;
+					isCollision = true;
+				}
 			}
 		}
 	}
