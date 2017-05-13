@@ -14,7 +14,7 @@ struct cs_key_input {	//키버튼 받았을때
 	XMFLOAT3	Animation = XMFLOAT3(0,0,0);
 
 
-	DWORD	key_button;
+	WORD	key_button;
 
 	//보여주기 식
 	float	x;
@@ -53,8 +53,9 @@ struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 	BYTE Goal;
 	BYTE RED;
 	BYTE Blue;
+	float timer;
 
-	//총 31Byte;
+	//총 35Byte;
 };
 
 struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다. 
@@ -63,7 +64,6 @@ struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다.
 	BYTE type;
 
 	WORD id;
-	WORD Charid;
 
 	float x;
 	float y;
@@ -79,7 +79,6 @@ struct sc_rotate_vector	//처리된 lookvector를 보낸다.
 	BYTE type;
 
 	WORD id;
-	WORD Charid;
 
 	float x;
 	float y;
@@ -92,7 +91,6 @@ struct sc_bullet_fire
 	BYTE type;
 
 	WORD id;
-	WORD Charid;
 
 	bool fire;
 	
@@ -159,6 +157,15 @@ struct SC_System_kill
 
 	//FLOAT Time;	//나중에 시간 넣어서 보내준다.
 
+
+};
+
+struct SC_Starting_Timer
+{
+	BYTE size;
+	BYTE type;
+
+	float Starting_timer;
 
 };
 

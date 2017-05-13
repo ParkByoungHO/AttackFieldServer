@@ -51,9 +51,6 @@ private:
 
 	int				m_HP = 100;
 	int				m_id = 0;
-	int				m_Charid = 0;	//클라에서 컨테이너가 0으로 시작하는데 자기자신이 0으로 들어간다.
-									//그래서 다른캐릭터 움직이려면 1부터 시작해야 하므로 main에서 static int를 선언해
-									//접속하면 값을 계속 ++해서 넣어줘야 한다.
 
 
 	bool			m_life = false;	//죽으면 true가 되고 리스폰 구현할 예정.
@@ -74,7 +71,7 @@ public:
 	void Update(float fTimeElapsed);
 	float getfPitch() { return player_move_info.m_fPitch; }
 	float getYaw() { return player_move_info.m_fYaw; }
-	void Setkey(DWORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); Update(0.15); }
+	void Setkey(WORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); Update(0.15); }
 	void setfire(bool fire) { m_fire = fire; }
 
 
@@ -108,8 +105,7 @@ public:
 	void setid (int id); 
 	int  Getid() const { return m_id; }
 
-	void SetCharid(int id) { m_Charid = id; }
-	int  GetCharid() const { return m_Charid; }
+
 
 	XMFLOAT3 const Getd3dxvVelocity()
 	{

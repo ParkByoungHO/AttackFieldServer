@@ -31,6 +31,11 @@ using namespace DirectX::PackedVector;
 #define OP_RECV				1
 #define OP_SEND				2
 #define OP_MOVE				3
+#define OP_RESPOND			4
+#define OP_SYSTEM_KILL		5
+#define OP_SYSTEM_TIMEER	6
+
+
 
 #define	SC_POS				1
 #define	SC_PUT_PLAYER		2
@@ -46,20 +51,7 @@ using namespace DirectX::PackedVector;
 #define MAX_BUFFSIZE		4000
 #define COLLISION_MGR CCollisionManager::GetInstance()
 
-struct vector3 {
-	float x;
-	float y;
-	float z;
 
-
-	vector3(int x, int y, int z) :x(x), y(y), z(z) {  };
-	vector3() {};
-	vector3 operator * (float f)
-	{
-		return vector3(f * x, f*y, f * z);
-	}
-
-};
 
 inline void ShowXMVector(XMVECTOR xmVector)
 {
@@ -96,31 +88,13 @@ inline void ShowXMFloat3(XMFLOAT3& xmf3)
 	cout << xmf3.x << ", " << xmf3.y << ", " << xmf3.z << endl;
 }
 
-struct PLAYER {		//플레이어 좌표.
-
-	float x;
-	float y;
-	float z;
-
-	bool fire;
-
-	XMFLOAT3	Animation;
-
-
-	BYTE Hp;
-
-	DWORD button;
-	vector3 lookvector;
-
-	XMFLOAT3 FireDirecton;
-};
 
 
 struct Event_timer {		//타이머
 
 	int obj_id;
 	unsigned wakeup_time;
-	int event_id;
+	int event_type;
 
 };
 
@@ -151,7 +125,9 @@ struct CLIENT {
 	Overlapex		recv_overlap;
 	int				previous_data_size;
 	mutex			vl_lock;
-	BYTE			packet[MAX_BUFFSIZE];
+	unsigned char	packet[MAX_BUFFSIZE];
 	bool			Red_Team = false;
 	CServerPlayer	player;
+	bool			starting = false;
+	float			Starting_Time;
 };
