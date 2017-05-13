@@ -35,7 +35,7 @@ void error_display(char *msg, int err_num)
 	LocalFree(lpMsgBuf);
 }
 
-void Sendpacket(int id, unsigned char* packet)
+void Sendpacket(int id, void* packet)
 {
 	//지역변수로 하짐라고 메모리 할당을 해줘야 한다.
 	Overlapex* send_over = new Overlapex;
@@ -77,7 +77,7 @@ void add_timer(int obj_id, int m_sec, int event_type)
 
 }
 
-void SendTimerpacket(int id)	///여기
+void SendTimerpacket(int id)	
 {
 	SC_Starting_Timer packet;
 
@@ -101,9 +101,11 @@ void SendPositionPacket(int id, int object)
 	packet.Hp = client[object].player.GetPlayerHp();
 	packet.Animation = client[object].player.GetAnimation();
 
-	cout<<id << " " << packet.x << " " << packet.y << " " << packet.z << endl;
 
-	Sendpacket(id, reinterpret_cast<unsigned char *>(&packet));
+
+
+
+	Sendpacket(id, &packet);
 }
 
 void sendbulletfire(int id, int object)
@@ -117,8 +119,22 @@ void sendbulletfire(int id, int object)
 	packet.fire = client[object].player.Getfire();
 	XMStoreFloat3(&packet.FireDirection , client[object].player.GetLook());
 
-	Sendpacket(id, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(id, (&packet));
 	
+}
+
+void sendReload(int id, int object)
+{
+	sc_Reload packet;
+	packet.id = object;
+
+	packet.size = sizeof(packet);
+	packet.type = SC_RELOAD;
+
+	packet.reload = client[object].player.GetReload();
+
+	Sendpacket(id, &packet);
+
 }
 
 void SendLookPacket(int id, int object)
@@ -133,7 +149,7 @@ void SendLookPacket(int id, int object)
 	packet.y = client[object].player.getYaw();
 	packet.z = 0;
 
-	Sendpacket(id, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(id,(&packet));
 }
 
 void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, XMFLOAT3 direction)
@@ -146,7 +162,7 @@ void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, X
 	packet.position = position;
 	packet.direction = direction;
 
-	Sendpacket(id, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(id, (&packet));
 }
 
 void Timer_Thread()
@@ -225,7 +241,7 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.RED = Red_Kill;
 	packet.Blue = Blue_kill;
 
-	Sendpacket(clients, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(clients, (&packet));
 }
 
 void SendSystemPacket(int clients)	//타이머
@@ -237,7 +253,7 @@ void SendSystemPacket(int clients)	//타이머
 	packet.RED = Red_Kill;
 	packet.BLUE = Blue_kill;
 
-	Sendpacket(clients, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(clients,(&packet));
 }
 
 
@@ -254,7 +270,7 @@ void SendPlayerHppacket(int clients, int player, bool Head)	//타이머
 	packet.live = client[player].player.Getlife();
 	
 
-	Sendpacket(clients, reinterpret_cast<unsigned char *>(&packet));
+	Sendpacket(clients,(&packet));
 }
 
 void processpacket(int id, unsigned char *packet)
@@ -262,21 +278,19 @@ void processpacket(int id, unsigned char *packet)
 	//패킷 종류별로 처리가 달라진다.
 	// 0 size 1 type
 
-	unsigned char packet_type = packet[1];
+	BYTE packet_type = packet[1];
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
 	{
-		cs_key_input key_button;
-		key_button = *reinterpret_cast<cs_key_input *>(packet);
-		XMFLOAT3 Temp(key_button.x, key_button.y, key_button.z);
-		// memcpy(&key_button, packet, packet[0]);
-		cout << id << " " << key_button.x << " " << key_button.y << " " << key_button.z << endl;
+		cs_key_input *key_button;
+		key_button = reinterpret_cast<cs_key_input *>(packet);
+		XMFLOAT3 Temp(key_button->x, key_button->y, key_button->z);
 		client[id].vl_lock.lock();
 		client[id].player.SetPosition(Temp);
-		client[id].player.Setkey(key_button.key_button);
-		client[id].player.SetFireDirection(key_button.FireDirection);
-		client[id].player.SetAnimation(key_button.Animation);
+		client[id].player.Setkey(key_button->key_button);
+		client[id].player.SetFireDirection(key_button->FireDirection);
+		client[id].player.SetAnimation(key_button->Animation);
 		client[id].vl_lock.unlock();
 		//cout << key_button->key_button << endl;
 
@@ -295,10 +309,10 @@ void processpacket(int id, unsigned char *packet)
 			{
 
 				SendPositionPacket(i, id);
-				sendbulletfire(i, id);
-				//SendLookPacket(i, id);
-
-
+				if(client[i].player.Getfire())
+					sendbulletfire(i, id);
+				if (client[i].player.GetReload())
+					sendReload(i, id);
 			}
 		}
 
@@ -306,6 +320,7 @@ void processpacket(int id, unsigned char *packet)
 		client[id].vl_lock.lock();
 		client[id].player.Setkey(0);
 		client[id].player.setfire(false);
+		client[id].player.setreload(false);
 		client[id].player.Setd3dxvVelocity(0, 0, 0);
 		client[id].player.SetAnimation(XMFLOAT3(0,0,0));
 		client[id].vl_lock.unlock();
@@ -349,7 +364,7 @@ void processpacket(int id, unsigned char *packet)
 			i++;
 		}
 	
-		//isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
 			
 		if (isCollisionSC) {
 		
@@ -406,10 +421,7 @@ void processpacket(int id, unsigned char *packet)
 		break;
 	
 	}
-	//for (int i = 0; i < MAX_USER; i++)
-	//{
-	//	add_timer(i, 1000, OP_SYSTEM_KILL);
-	//}
+
 }
 
 void Accept_thread()
@@ -449,7 +461,6 @@ void Accept_thread()
 		//}
 
 		static int new_id = 0;
-		static int char_id = 1;
 
 		if (new_id == 10)
 		{
@@ -566,7 +577,7 @@ void worker_Thread()
 			{
 			case OP_RECV:
 			{
-				unsigned char* pBuff = overlap->socket_buff;
+				BYTE* pBuff = overlap->socket_buff;
 				int remained = io_size;
 
 				//남은 데이터 사이즈만큼 순회하면서 처리
@@ -583,7 +594,6 @@ void worker_Thread()
 					{
 						//지난번에 받은 데이터 뒷부분에 복사
 						memcpy(client[key].packet + client[key].previous_data_size, pBuff, required);
-						cout << "key : " << key << "client packet : " << (int)client[key].packet[1] << endl;
 						processpacket((int)key, client[key].packet);
 						remained -= required;
 						pBuff += required;
@@ -614,16 +624,20 @@ void worker_Thread()
 				//add_timer((int)key, 1000, OP_MOVE);
 				break;
 			case OP_RESPOND:
+
 				client[(int)key].vl_lock.lock();
 				client[(int)key].player.SetPlayerHp(100);		//피를 100만들어주고
 				client[(int)key].vl_lock.unlock();
+
+				cout << client[key].player.Getlife();
+
 				for (int i = 0; i < MAX_USER; i++)
 				{
 					if (client[i].connected)
 					{
 						//SendTemp(i, (int)key);
-						
 						SendPlayerHppacket(i, (int)key, false);
+						add_timer(i, 1000, OP_SYSTEM_KILL);
 						
 						//add_timer((int)key, 1, OP_RECV);
 					}

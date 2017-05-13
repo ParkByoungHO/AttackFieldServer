@@ -11,6 +11,7 @@ enum class KeyInput
 	eLeft = 0x04,
 	eRight = 0x08,
 	eRun = 0x10,
+	eReload = 0x20,
 
 	// Mouse
 	eLeftMouse = 0x100,

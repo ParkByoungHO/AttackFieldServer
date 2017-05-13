@@ -97,6 +97,17 @@ struct sc_bullet_fire
 	XMFLOAT3 FireDirection;
 };
 
+struct sc_Reload
+{
+	BYTE size;
+	BYTE type;
+
+	WORD id;
+
+	bool reload;
+
+};
+
 struct sc_packet_remove_player {	//접속이 종료되면 보내는 패킷이다.
 	BYTE size;
 	BYTE type;
@@ -118,7 +129,6 @@ struct SC_Collison
 	BYTE type;
 
 	WORD id;
-	//WORD Charid;
 
 	BOOL collision;
 	XMFLOAT3 position;

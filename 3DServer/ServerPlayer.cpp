@@ -54,6 +54,10 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 	if (m_wKeyState & static_cast<int>(KeyInput::eRightMouse)) {
 
 	}
+	if (m_wKeyState & static_cast<int>(KeyInput::eReload))
+	{
+		m_Reload = true;
+	}
 
 	if (m_wKeyState == 0) {
 

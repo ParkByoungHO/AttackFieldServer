@@ -55,6 +55,7 @@ private:
 
 	bool			m_life = false;	//죽으면 true가 되고 리스폰 구현할 예정.
 	bool			m_fire = false;	//총 발포
+	bool			m_Reload = false;
 
 	
 public:
@@ -73,6 +74,7 @@ public:
 	float getYaw() { return player_move_info.m_fYaw; }
 	void Setkey(WORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); Update(0.15); }
 	void setfire(bool fire) { m_fire = fire; }
+	void setreload(bool load) { m_Reload = load; }
 
 
 	int GetPlayerHp() { return m_HP; }
@@ -89,6 +91,7 @@ public:
 
 	bool Getlife() { return m_life; }
 	bool Getfire() { return m_fire; }
+	bool GetReload() { return m_Reload; }
 	
 	void SetAnimation(XMFLOAT3 Animation) { player_move_info.Animation = Animation; }
 	XMFLOAT3 GetAnimation() { return player_move_info.Animation; }

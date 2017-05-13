@@ -45,6 +45,8 @@ using namespace DirectX::PackedVector;
 #define	SC_ColliSion		6
 #define SC_PUT_HP			7
 #define SC_SYSTEM			8
+#define SC_TIME				9
+#define SC_RELOAD			10
 
 #define MAX_USER			10
 
@@ -113,7 +115,7 @@ struct Overlapex {
 	WSAOVERLAPPED	original_overlap;
 	int				operation;
 	WSABUF			recv_buffer;
-	BYTE			socket_buff[MAX_BUFFSIZE];
+	unsigned char	socket_buff[MAX_BUFFSIZE];
 	int				packet_size;
 
 };
