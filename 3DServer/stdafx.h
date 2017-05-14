@@ -47,6 +47,7 @@ using namespace DirectX::PackedVector;
 #define SC_SYSTEM			8
 #define SC_TIME				9
 #define SC_RELOAD			10
+#define SC_RESPAWN			11
 
 #define MAX_USER			10
 

@@ -273,6 +273,21 @@ void SendPlayerHppacket(int clients, int player, bool Head)	//타이머
 	Sendpacket(clients,(&packet));
 }
 
+void SendRespond(int clients, int player)
+{
+	SC_Respawn packet;
+	packet.size = sizeof(SC_Respawn);
+	packet.type = SC_RESPAWN;
+	packet.id = player;
+	packet.m_bIsRespawn = true;
+	packet.m_f3Position = client[player].player.GetPosition();
+
+	ShowXMFloat3(packet.m_f3Position);
+
+	Sendpacket(clients, (&packet));
+		
+}
+
 void processpacket(int id, unsigned char *packet)
 {
 	//패킷 종류별로 처리가 달라진다.
@@ -404,7 +419,7 @@ void processpacket(int id, unsigned char *packet)
 					else
 						Red_Kill++;
 
-					
+					add_timer(i, 100, OP_SYSTEM_KILL);
 					add_timer(i, 5000, OP_RESPOND);
 				}
 				
@@ -627,17 +642,22 @@ void worker_Thread()
 
 				client[(int)key].vl_lock.lock();
 				client[(int)key].player.SetPlayerHp(100);		//피를 100만들어주고
-				client[(int)key].vl_lock.unlock();
 
-				cout << client[key].player.Getlife();
+
+				if (client[(int)key].Red_Team)						//처음 위치로
+					client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 12));
+				else
+					client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 25));
+				
+				client[(int)key].vl_lock.unlock();
 
 				for (int i = 0; i < MAX_USER; i++)
 				{
 					if (client[i].connected)
 					{
 						//SendTemp(i, (int)key);
+						SendRespond(i, (int)key);
 						SendPlayerHppacket(i, (int)key, false);
-						add_timer(i, 1000, OP_SYSTEM_KILL);
 						
 						//add_timer((int)key, 1, OP_RECV);
 					}

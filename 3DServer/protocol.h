@@ -179,4 +179,14 @@ struct SC_Starting_Timer
 
 };
 
+struct SC_Respawn	//리스폰 5초뒤에 보내줘야 하는것.
+{
+	BYTE size;
+	BYTE type;
+	BYTE id;
+
+	BOOL m_bIsRespawn;
+	XMFLOAT3 m_f3Position;
+};
+
 #pragma pack(pop)
