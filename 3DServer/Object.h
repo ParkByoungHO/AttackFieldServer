@@ -1,6 +1,7 @@
 #pragma once
 
 class CGameObject;
+
 struct CollisionInfo
 {
 	CGameObject*		m_pHitObject = nullptr;
@@ -75,7 +76,13 @@ public:
 	void SetvLook(XMVECTOR axis, bool bIsLocal = false);
 	void SetUp(XMFLOAT3 axis, bool bIsLocal = false);
 	void SetRight(XMFLOAT3 axis, bool bIsLocal = false);
-
+	void SetBoundingBox(BoundingBox box) { 
+		m_bcMeshBoundingBox = box; 
+		BoundingSphere::CreateFromBoundingBox(m_bsMeshBoundingSphere, m_bcMeshBoundingBox);
+		BoundingOrientedBox::CreateFromBoundingBox(m_bcMeshBoundingOBox, m_bcMeshBoundingBox);
+	}
+	
+	
 	BoundingBox GetBoundingBox(bool isLocal = false) const;
 	BoundingSphere GetBoundingSphere(bool isLocal = false) const;
 	BoundingOrientedBox GetBoundingOBox(bool isLocal = false) const;

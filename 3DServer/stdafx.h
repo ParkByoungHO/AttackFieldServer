@@ -9,6 +9,11 @@
 #include<set>
 #include<queue>
 #include<vector>
+#include<map>
+#include<fstream>
+#include<string>
+
+
 using namespace std;
 
 #include <D3DX10Math.h>
@@ -25,6 +30,8 @@ using namespace DirectX::PackedVector;
 #include "EnumDefine.h"
 #include "CollisionManager.h"
 #include "ServerPlayer.h"
+#include "MapManager.h"
+#include "MeshManager.h"
 
 #define SERVERPORT		9000
 
@@ -34,6 +41,7 @@ using namespace DirectX::PackedVector;
 #define OP_RESPOND			4
 #define OP_SYSTEM_KILL		5
 #define OP_SYSTEM_TIMEER	6
+#define OP_POSITION			7
 
 
 
@@ -48,12 +56,16 @@ using namespace DirectX::PackedVector;
 #define SC_TIME				9
 #define SC_RELOAD			10
 #define SC_RESPAWN			11
+#define SC_RUN				12
 
 #define MAX_USER			10
 
 #define MAX_BUFFSIZE		4000
-#define COLLISION_MGR CCollisionManager::GetInstance()
+#define MAX_PACKET_SIZE		255
 
+#define COLLISION_MGR	CCollisionManager::GetInstance()
+#define MAPDATA_MGR		CMapManager::GetInstance()
+#define MESHDATA_MGR	CMeshManager::GetInstance()
 
 
 inline void ShowXMVector(XMVECTOR xmVector)
@@ -121,14 +133,19 @@ struct Overlapex {
 
 };
 
+
+
+
 struct CLIENT {
 	//int				id;
 	bool			connected;
 	SOCKET			sock;
 	Overlapex		recv_overlap;
-	int				previous_data_size;
+	int				prev_packet_data;
+	int				curr_packet_size;
 	mutex			vl_lock;
 	unsigned char	packet[MAX_BUFFSIZE];
+
 	bool			Red_Team = false;
 	CServerPlayer	player;
 	bool			starting = false;

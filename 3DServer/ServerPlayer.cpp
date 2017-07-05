@@ -43,7 +43,7 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 
 	if (m_wKeyState & static_cast<int>(KeyInput::eRun)) {
 		d3dxvShift *= 3;		// m_fSpeed 로 변경해야함
-
+		m_Run = true;
 	}
 
 	//Mouse
@@ -67,20 +67,51 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 	XMStoreFloat3(&player_move_info.m_d3dxvVelocity, XMLoadFloat3(&player_move_info.m_d3dxvVelocity) + d3dxvShift);
 
 	Move(d3dxvShift);
-
+	Update(0.05);
 }
 
 void CServerPlayer::Move(XMVECTOR d3dxvShift)
 {
 	XMVECTOR d3dxvPosition = XMLoadFloat3(&player_move_info.m_d3dxvPosition) + d3dxvShift;
 	XMStoreFloat3(&player_move_info.m_d3dxvPosition, d3dxvPosition);
+
+	
 }
 
 void CServerPlayer::Rotate(float x, float y)
 {
 		XMMATRIX mtxRotate;
 
-		if (x != 0.0f)
+			if (x != 0.0f) {
+				float fPitch = player_move_info.m_fPitch;
+				fPitch += x;
+				if (50.0f < fPitch) {
+					x -= (fPitch - 50);
+					fPitch = 50;
+				}
+				if (fPitch < -40.0f) {
+					x -= (fPitch + 40);
+					fPitch = -40;
+				}
+				player_move_info.m_fPitch = fPitch;
+				if (y != 0.0f) {
+					float fYaw = player_move_info.m_fYaw;
+					fYaw += y;
+					if (fYaw > 360.0f) fYaw -= 360.0f;
+					if (fYaw < 0.0f) fYaw += 360.0f;
+					player_move_info.m_fYaw = fYaw;
+
+					mtxRotate = XMMatrixRotationAxis(XMLoadFloat3(&player_move_info.m_d3dxvUp), XMConvertToRadians(y));
+					XMStoreFloat3(&player_move_info.m_d3dxvLook, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvLook), mtxRotate));
+					XMStoreFloat3(&player_move_info.m_d3dxvRight, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvRight), mtxRotate));
+				}
+				
+			}
+		
+
+
+
+		/*if (x != 0.0f)
 		{
 			player_move_info.m_fPitch += x;
 			if (player_move_info.m_fPitch > +50) { x -= (player_move_info.m_fPitch - 50); player_move_info.m_fPitch = +50; }
@@ -95,7 +126,7 @@ void CServerPlayer::Rotate(float x, float y)
 			mtxRotate = XMMatrixRotationAxis(XMLoadFloat3(&player_move_info.m_d3dxvUp), XMConvertToRadians(y));
 			XMStoreFloat3(&player_move_info.m_d3dxvLook, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvLook), mtxRotate));
 			XMStoreFloat3(&player_move_info.m_d3dxvRight, XMVector3TransformNormal(XMLoadFloat3(&player_move_info.m_d3dxvRight), mtxRotate));
-		}
+		}*/
 
 		XMStoreFloat3(&player_move_info.m_d3dxvLook, XMVector3Normalize(XMLoadFloat3(&player_move_info.m_d3dxvLook)));
 		XMStoreFloat3(&player_move_info.m_d3dxvRight, XMVector3Cross(XMLoadFloat3(&player_move_info.m_d3dxvUp), XMLoadFloat3(&player_move_info.m_d3dxvLook)));

@@ -14,7 +14,7 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-BYTE Goal_Kill = 100;
+BYTE Goal_Kill = 10;
 BYTE Red_Kill = 0;
 BYTE Blue_kill = 0;
 BOOL Timer = false;
@@ -95,13 +95,14 @@ void SendPositionPacket(int id, int object)
 	packet.id = object;
 	packet.size = sizeof(packet);
 	packet.type = SC_POS;
+	packet.key_button = client[object].player.GetKey();
 	packet.x = client[object].player.GetPosition().x;
 	packet.y = client[object].player.GetPosition().y;
 	packet.z = client[object].player.GetPosition().z;
 	packet.Hp = client[object].player.GetPlayerHp();
 	packet.Animation = client[object].player.GetAnimation();
 
-
+	//cout<<object<< " " << packet.key_button << endl;
 
 
 
@@ -135,6 +136,19 @@ void sendReload(int id, int object)
 
 	Sendpacket(id, &packet);
 
+}
+
+void SendRun(int id, int object)
+{
+	SC_Run packet;
+	packet.id = object;
+	packet.size = sizeof(SC_Run);
+
+	packet.type = SC_RUN;
+
+	packet.Run = client[object].player.GetRun();
+
+	Sendpacket(id, &packet);
 }
 
 void SendLookPacket(int id, int object)
@@ -282,8 +296,7 @@ void SendRespond(int clients, int player)
 	packet.m_bIsRespawn = true;
 	packet.m_f3Position = client[player].player.GetPosition();
 
-	ShowXMFloat3(packet.m_f3Position);
-
+	
 	Sendpacket(clients, (&packet));
 		
 }
@@ -294,18 +307,24 @@ void processpacket(int id, unsigned char *packet)
 	// 0 size 1 type
 
 	BYTE packet_type = packet[1];
+
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
 	{
 		cs_key_input *key_button;
 		key_button = reinterpret_cast<cs_key_input *>(packet);
-		XMFLOAT3 Temp(key_button->x, key_button->y, key_button->z);
 		client[id].vl_lock.lock();
-		client[id].player.SetPosition(Temp);
 		client[id].player.Setkey(key_button->key_button);
+
+
+		XMFLOAT3 Temp(key_button->x, key_button->y, key_button->z); //클라에서 처리된값다시 보내기.
+		client[id].player.SetPosition(Temp);
 		client[id].player.SetFireDirection(key_button->FireDirection);
 		client[id].player.SetAnimation(key_button->Animation);
+
+		//COLLISION_MGR->m_vecCharacterContainer[id]->SetWorldMatirx(client[id].player.GetWorldMatrix());
+
 		client[id].vl_lock.unlock();
 		//cout << key_button->key_button << endl;
 
@@ -318,16 +337,19 @@ void processpacket(int id, unsigned char *packet)
 		//cout << key_button.key_button<<endl;
 		//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 
+
 		for (int i = 0; i < MAX_USER; i++)
 		{
 			if (client[i].connected == true)
 			{
 
 				SendPositionPacket(i, id);
-				if(client[i].player.Getfire())
+				//if(client[id].player.Getfire())
 					sendbulletfire(i, id);
-				if (client[i].player.GetReload())
+				//if (client[id].player.GetReload())
 					sendReload(i, id);
+				//if (client[id].player.GetRun())
+					SendRun(i, id);
 			}
 		}
 
@@ -338,6 +360,8 @@ void processpacket(int id, unsigned char *packet)
 		client[id].player.setreload(false);
 		client[id].player.Setd3dxvVelocity(0, 0, 0);
 		client[id].player.SetAnimation(XMFLOAT3(0,0,0));
+		client[id].player.SetRun(false);
+		client[id].player.Update(0.05);
 		client[id].vl_lock.unlock();
 		break;
 	}
@@ -348,12 +372,15 @@ void processpacket(int id, unsigned char *packet)
 		rotate = reinterpret_cast<cs_rotate *>(packet);
 		//cout << rotate.cx << " " << rotate.cy << " " << rotate.cz<<endl;
 		client[id].vl_lock.lock();
-		client[id].player.Rotate(rotate->cx, rotate->cy);
+		client[id].player.SetPitch(rotate->cx);
+		client[id].player.SetYaw(rotate->cy);
+		//client[id].player.Rotate(rotate->cx, rotate->cy);
+		client[id].player.Update(0.05);
 		client[id].vl_lock.unlock();
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
-			if (client[i].connected == true)
+			if (client[i].connected == true && !client[id].player.Getlife())
 			{
 				SendLookPacket(i, id);
 			}
@@ -362,8 +389,8 @@ void processpacket(int id, unsigned char *packet)
 	}
 	case CS_WEAPONE:
 	{
-		cs_weapon *weapon;
-		weapon = reinterpret_cast<cs_weapon *>(packet);
+		
+		cs_weapon *weapon = reinterpret_cast<cs_weapon *>(packet);
 		CollisionInfo info;
 		bool isCollisionSC = false;
 
@@ -375,7 +402,6 @@ void processpacket(int id, unsigned char *packet)
 			client[i].vl_lock.lock();
 			character->SetWorldMatirx(client[i].player.GetWorldMatrix());
 			client[i].vl_lock.unlock();
-			//ShowXMMatrix(character->GetWorldMatrix());
 			i++;
 		}
 	
@@ -385,6 +411,7 @@ void processpacket(int id, unsigned char *packet)
 		
 				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife())
 					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
+
 			}
 		break;
 	}
@@ -396,7 +423,7 @@ void processpacket(int id, unsigned char *packet)
 			client[Hit->id].vl_lock.lock();
 			client[Hit->id].player.DamegeplayerHp(70);
 			client[Hit->id].vl_lock.unlock();
-			cout << "head" << endl;
+			//cout << "head" << endl;
 		}
 		else {
 			client[Hit->id].vl_lock.lock();
@@ -437,6 +464,7 @@ void processpacket(int id, unsigned char *packet)
 	
 	}
 
+	
 }
 
 void Accept_thread()
@@ -504,14 +532,14 @@ void Accept_thread()
 		}
 		else
 		{
-			client[new_id].player.SetPosition(XMFLOAT3(65,2,25));
+			client[new_id].player.SetPosition(XMFLOAT3(65,2,105));
 		}
 
 
 		client[new_id].player.SetAnimation(XMFLOAT3(0,0,0));
 		client[new_id].recv_overlap.operation = OP_RECV;
 		client[new_id].recv_overlap.packet_size = 0;
-		client[new_id].previous_data_size = 0;
+		client[new_id].prev_packet_data = 0;
 		client[new_id].player.SetFireDirection(XMFLOAT3(0,0,0));
 
 
@@ -521,7 +549,6 @@ void Accept_thread()
 		client[new_id].vl_lock.unlock();
 		add_timer(new_id, 1000, OP_SYSTEM_TIMEER);
 		
-
 		CCharacterObject* pCharacter = new CCharacterObject();
 		COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
 		//입출력 포트와 클라이언트 연결
@@ -602,25 +629,25 @@ void worker_Thread()
 					{
 						client[key].recv_overlap.packet_size = pBuff[0];
 					}
-					int required = client[key].recv_overlap.packet_size - client[key].previous_data_size;
+					int required = client[key].recv_overlap.packet_size - client[key].prev_packet_data;
 
 					//패킷완성
 					if (remained >= required)
 					{
 						//지난번에 받은 데이터 뒷부분에 복사
-						memcpy(client[key].packet + client[key].previous_data_size, pBuff, required);
+						memcpy(client[key].packet + client[key].prev_packet_data, pBuff, required);
 						processpacket((int)key, client[key].packet);
 						remained -= required;
 						pBuff += required;
 						client[key].recv_overlap.packet_size = 0;
-						client[key].previous_data_size = 0;
+						client[key].prev_packet_data = 0;
 
 					}
 					else
 					{
-						memcpy(client[key].packet + client[key].previous_data_size, pBuff, remained);
+						memcpy(client[key].packet + client[key].prev_packet_data, pBuff, remained);
 						//미완성 패킷의 사이즈가 reamined만큼 증가
-						client[key].previous_data_size += remained;
+						client[key].prev_packet_data += remained;
 						remained = 0;
 						pBuff++;
 					}
@@ -645,33 +672,35 @@ void worker_Thread()
 
 
 				if (client[(int)key].Red_Team)						//처음 위치로
-					client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 12));
+					client[(int)key].player.SetPosition(XMFLOAT3(60, 3, 12));
 				else
-					client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 25));
-				
+					client[(int)key].player.SetPosition(XMFLOAT3(60, 3, 105));
+
 				client[(int)key].vl_lock.unlock();
 
+
+				SendPlayerHppacket(key, (int)key, false);	//처음에 자기자신에게 보내고
+				SendRespond(key, (int)key);
 				for (int i = 0; i < MAX_USER; i++)
 				{
 					if (client[i].connected)
 					{
 						//SendTemp(i, (int)key);
 						SendRespond(i, (int)key);
-						SendPlayerHppacket(i, (int)key, false);
-						
+						SendPlayerHppacket(i, (int)key, false);	//전체적으로 뿌린다.
+
 						//add_timer((int)key, 1, OP_RECV);
 					}
 				}
-				//add_timer((int)key, 1, OP_RECV);
-			break;
+				break;
 			case OP_SYSTEM_KILL:
 				for (int i = 0; i < MAX_USER; i++)
 				{
 					if (client[i].connected)
 					{
-						
+
 						SendSystemPacket(i);
-						
+
 					}
 				}
 				break;
@@ -679,17 +708,20 @@ void worker_Thread()
 			{
 
 				static float Time = 600;
-				--Time;	
+				--Time;
 				client[(int)key].Starting_Time = Time;
 				if (client[(int)key].starting == false)
 				{
-				
+
 					SendTimerpacket((int)key);
 					client[(int)key].starting = true;
 				}
 				add_timer((int)key, 1000, OP_SYSTEM_TIMEER);
-			}
 				break;
+			}
+
+			
+
 			default:
 				cout << overlap->operation;
 				cout << "Unknown Event on Worker_Thread" << endl;
@@ -699,14 +731,316 @@ void worker_Thread()
 	}
 }
 
+bool CreateMap()
+{
+	MAPDATA_MGR->InitializeManager();
+	MESHDATA_MGR->InitializeManager();
+	CGameObject *pObject = nullptr;
+	BoundingBox boundingBox;
+	vector<MapData> vecMapData;
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eRoad);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eRoad1);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+	
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eRoad);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eRoad2);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eCrossRoad);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eCrossRoad);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eCenterRoad);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eCenterRoad);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding19);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding19);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding20);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding20);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding21);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding21);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding22);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding22);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding30);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding30);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding33);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding33);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding34);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding34);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding77);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding77);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding78);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding78);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding100);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding100);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding103);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding103);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBuilding104);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBuilding104);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eParkingLot);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eParkingLot);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBench);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBench);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBusStop);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBusStop);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eStreetLamp);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eStreetLamp);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag::eBarricade);
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eBarricade);
+
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	//boundingBox = MESHDATA_MGR->GetBoundingBox(MeshTag:: );
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eSideWalk1);
+	boundingBox.Extents = XMFLOAT3(vecMapData[0].m_Scale);
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eSideWalk2);
+	boundingBox.Extents = XMFLOAT3(vecMapData[0].m_Scale);
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+
+	vecMapData = MAPDATA_MGR->GetDataVector(ObjectTag::eStoneWall);
+	for (int count = 0; count < vecMapData.size(); ++count) {
+		pObject = new CGameObject();
+		pObject->SetBoundingBox(boundingBox);
+		pObject->SetPosition(vecMapData[count].m_Position);
+		pObject->Rotate(vecMapData[count].m_Rotation);
+
+		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
+	}
+	return true;
+
+}
+
 int main(int argv, char* argc[])
 {
+	//CreateMap();
+	Initialize_server();
+
 	thread* pAcceptThread;
 	thread* pTimerThread;
 
 	vector<thread*> vpThread;
 
-	Initialize_server();
 
 	SYSTEM_INFO sys_info;
 
@@ -741,7 +1075,7 @@ int main(int argv, char* argc[])
 	delete pTimerThread;
 
 
-
+	
 	DeleteCriticalSection(&g_CriticalSection);
 	DeleteCriticalSection(&timer_lock);
 

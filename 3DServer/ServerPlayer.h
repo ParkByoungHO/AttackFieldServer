@@ -55,7 +55,9 @@ private:
 
 	bool			m_life = false;	//죽으면 true가 되고 리스폰 구현할 예정.
 	bool			m_fire = false;	//총 발포
-	bool			m_Reload = false;
+	bool			m_Reload = false;	//재장전
+	bool			m_Run = false;	//	달리기
+	bool			m_Respawn = false;
 
 	
 public:
@@ -70,20 +72,29 @@ public:
 
 	void Rotate(float x, float y);
 	void Update(float fTimeElapsed);
+	void SetYaw(float yaw) { player_move_info.m_fYaw = yaw; }
+	void SetPitch(float pitch) { player_move_info.m_fPitch = pitch; }
 	float getfPitch() { return player_move_info.m_fPitch; }
 	float getYaw() { return player_move_info.m_fYaw; }
-	void Setkey(WORD key) { m_wKeyState = key;  UpdateKeyInput(0.15); Update(0.15); }
+	float getRoll() { return player_move_info.m_fRoll; }
+
+	void Setkey(WORD key) { m_wKeyState = key;  }
+
 	void setfire(bool fire) { m_fire = fire; }
 	void setreload(bool load) { m_Reload = load; }
+	void SetRun(bool run) { m_Run = run; }
+	void SetRespawn(bool respawn) { m_Respawn = respawn; }
 
 
 	int GetPlayerHp() { return m_HP; }
 	void SetPlayerHp(int hp) { m_HP = hp;  m_life = false; }
+	WORD GetKey() { return m_wKeyState; }
 	void DamegeplayerHp(int damage)
 	{
 		if (m_HP <= damage) {
 			m_HP = 0;
 			m_life = true;
+			m_Respawn = true;
 		}
 		else
 			m_HP -= damage;
@@ -91,6 +102,7 @@ public:
 
 	bool Getlife() { return m_life; }
 	bool Getfire() { return m_fire; }
+	bool GetRun() { return m_Run; }
 	bool GetReload() { return m_Reload; }
 	
 	void SetAnimation(XMFLOAT3 Animation) { player_move_info.Animation = Animation; }
@@ -99,7 +111,6 @@ public:
 
 	void SetFireDirection(XMFLOAT3	fireDirection) { player_move_info.FireDirection = fireDirection; }
 	XMFLOAT3 GetFireDirection() { return player_move_info.FireDirection; }
-
 	XMMATRIX GetWorldMatrix() { return m_mtxWorld; }
 
 
@@ -116,7 +127,7 @@ public:
 	}
 	
 
-	XMFLOAT3 const GetPosition()
+	XMFLOAT3 GetPosition()
 	{
 		return player_move_info.m_d3dxvPosition;
 	}

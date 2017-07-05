@@ -4,6 +4,9 @@
 #define CS_ROTATE		2
 #define CS_WEAPONE		3
 #define CS_HEAD_HIT		4
+#define CS_GAME_MODE	5
+
+#define Dead_Reckoning	7
 
 #pragma pack(push, 1)
 struct cs_key_input {	//키버튼 받았을때 
@@ -64,6 +67,7 @@ struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다.
 	BYTE type;
 
 	WORD id;
+	WORD key_button;
 
 	float x;
 	float y;
@@ -105,6 +109,18 @@ struct sc_Reload
 	WORD id;
 
 	bool reload;
+
+};
+
+struct SC_Run
+{
+	BYTE size;
+	BYTE type;
+
+	WORD id;
+
+	bool Run;
+
 
 };
 
