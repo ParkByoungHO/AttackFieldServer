@@ -157,6 +157,7 @@
     <ClCompile Include="MapManager.cpp" />
     <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="Object.cpp" />
+    <ClCompile Include="Roommanager.cpp" />
     <ClCompile Include="ServerPlayer.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -170,6 +171,7 @@
     <ClInclude Include="MeshManager.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="protocol.h" />
+    <ClInclude Include="Roommanager.h" />
     <ClInclude Include="ServerPlayer.h" />
     <ClInclude Include="SingletonManager.h" />
     <ClInclude Include="stdafx.h" />

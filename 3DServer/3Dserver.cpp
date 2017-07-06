@@ -2,8 +2,11 @@
 #include"protocol.h"
 #include"ServerPlayer.h"
 #include"Timer.h"
+#include "Roommanager.h"
 
 CGameTimer g_GameTimer;
+
+
 
 CLIENT client[MAX_USER];
 CLIENT other[200];
@@ -14,10 +17,16 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
+queue<CServerPlayer> death_mode;
+queue<CServerPlayer> capture_mode;
+
+
 BYTE Goal_Kill = 10;
 BYTE Red_Kill = 0;
 BYTE Blue_kill = 0;
 BOOL Timer = false;
+
+
 
 
 
@@ -458,6 +467,46 @@ void processpacket(int id, unsigned char *packet)
 
 	}
 		break;
+	case CS_GAME_MODE:
+	{
+		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
+
+
+		CServerPlayer player;
+
+		if (mode->mode == 0) //데스메치
+		{
+			death_mode.push(client[id].player);
+
+			if (death_mode.size() == 2)
+			{
+				CRoommanager *death_mode_Room = new CRoommanager();
+				while (!death_mode.empty())
+				{
+					death_mode_Room->insert_Player(death_mode.front());
+					death_mode.pop();
+				}
+
+			}
+			
+		}
+		else   //점령전
+		{
+			capture_mode.push(client[id].player);
+			if (capture_mode.size() == 2)
+			{
+				CRoommanager *capture_mode_Room = new CRoommanager();
+				while (!capture_mode.empty())
+				{
+					capture_mode_Room->insert_Player(capture_mode.front());
+					capture_mode.pop();
+				}
+
+			}
+		}
+	
+		break;
+	}
 	default:
 		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;

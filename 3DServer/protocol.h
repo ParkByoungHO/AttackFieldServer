@@ -9,6 +9,15 @@
 #define Dead_Reckoning	7
 
 #pragma pack(push, 1)
+
+struct cs_Gamemode
+{
+	BYTE size;
+	BYTE type;
+	BYTE mode;
+
+};
+
 struct cs_key_input {	//키버튼 받았을때 
 
 	BYTE	size;
