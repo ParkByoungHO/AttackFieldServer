@@ -12,6 +12,7 @@
 #include<map>
 #include<fstream>
 #include<string>
+#include<atomic>
 
 
 using namespace std;
@@ -146,7 +147,7 @@ struct CLIENT {
 	mutex			vl_lock;
 	unsigned char	packet[MAX_BUFFSIZE];
 
-	bool			Red_Team = false;
+	BYTE			Red_Team = 2;
 	CServerPlayer	player;
 	bool			starting = false;
 	float			Starting_Time;

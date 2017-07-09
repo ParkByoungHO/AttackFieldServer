@@ -4,6 +4,7 @@
 
 CRoommanager::CRoommanager()
 {
+	m_Goalkill = 0;
 }
 
 
@@ -12,9 +13,9 @@ CRoommanager::~CRoommanager()
 }
 
 
-void CRoommanager::insert_Player(CServerPlayer player)
+void CRoommanager::insert_Player(CLIENT &player)
 {
-	m_roomnumber += 1;
+
 	m_room_player.push_back(player);
 
 }

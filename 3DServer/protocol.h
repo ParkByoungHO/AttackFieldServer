@@ -59,6 +59,8 @@ struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 	float y;
 	float z;
 
+	BYTE Team;
+
 	XMFLOAT3 Animation;
 	BYTE hp;
 

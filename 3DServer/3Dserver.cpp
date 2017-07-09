@@ -17,8 +17,10 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-queue<CServerPlayer> death_mode;
-queue<CServerPlayer> capture_mode;
+queue<CLIENT> death_mode;
+queue<CLIENT> capture_mode;
+
+map <int, CRoommanager *>	g_room;
 
 
 BYTE Goal_Kill = 10;
@@ -263,6 +265,7 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.Goal = Goal_Kill;
 	packet.RED = Red_Kill;
 	packet.Blue = Blue_kill;
+	packet.Team = client[player].Red_Team;
 
 	Sendpacket(clients, (&packet));
 }
@@ -469,14 +472,15 @@ void processpacket(int id, unsigned char *packet)
 		break;
 	case CS_GAME_MODE:
 	{
-		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
+		static atomic_int roomnum;
 
+		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
 
 		CServerPlayer player;
 
 		if (mode->mode == 0) //데스메치
 		{
-			death_mode.push(client[id].player);
+			death_mode.push(client[id]);
 
 			if (death_mode.size() == 2)
 			{
@@ -484,7 +488,11 @@ void processpacket(int id, unsigned char *packet)
 				while (!death_mode.empty())
 				{
 					death_mode_Room->insert_Player(death_mode.front());
+					g_room.insert(make_pair(roomnum, death_mode_Room));
 					death_mode.pop();
+
+					roomnum++;
+
 				}
 
 			}
@@ -492,14 +500,18 @@ void processpacket(int id, unsigned char *packet)
 		}
 		else   //점령전
 		{
-			capture_mode.push(client[id].player);
+			capture_mode.push(client[id]);
 			if (capture_mode.size() == 2)
 			{
 				CRoommanager *capture_mode_Room = new CRoommanager();
 				while (!capture_mode.empty())
 				{
 					capture_mode_Room->insert_Player(capture_mode.front());
+					g_room.insert(make_pair(roomnum, capture_mode_Room));
 					capture_mode.pop();
+
+					roomnum++;
+
 				}
 
 			}
@@ -570,7 +582,7 @@ void Accept_thread()
 		client[new_id].player.setid(new_id);
 
 		if (client[new_id].player.Getid() % 2 == 0)	//짝수일때 레드팀
-			client[new_id].Red_Team = true;
+			client[new_id].Red_Team = 1;
 
 
 		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
@@ -612,7 +624,7 @@ void Accept_thread()
 
 		for (int i = 0; i < MAX_USER; ++i)
 		{
-			if (client[i].connected == true)
+			if (client[i].connected == true )
 			{
 				if (i != new_id)
 				{
