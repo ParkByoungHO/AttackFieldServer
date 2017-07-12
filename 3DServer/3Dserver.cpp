@@ -17,8 +17,8 @@ CRITICAL_SECTION g_CriticalSection;
 CRITICAL_SECTION timer_lock;
 priority_queue<Event_timer, vector<Event_timer>, mycomparison> p_queue;
 
-queue<CLIENT> death_mode;
-queue<CLIENT> capture_mode;
+queue<CLIENT *> death_mode;
+queue<CLIENT *> capture_mode;
 
 map <int, CRoommanager *>	g_room;
 
@@ -27,6 +27,7 @@ BYTE Goal_Kill = 10;
 BYTE Red_Kill = 0;
 BYTE Blue_kill = 0;
 BOOL Timer = false;
+atomic_int roomnum = 0;
 
 
 
@@ -417,7 +418,8 @@ void processpacket(int id, unsigned char *packet)
 			i++;
 		}
 	
-		isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+		isCollisionSC = g_room[0]->CollisonCheck(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+		//isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
 			
 		if (isCollisionSC) {
 		
@@ -472,15 +474,12 @@ void processpacket(int id, unsigned char *packet)
 		break;
 	case CS_GAME_MODE:
 	{
-		static atomic_int roomnum;
-
 		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
-
-		CServerPlayer player;
+		CLIENT *player = &client[id];
 
 		if (mode->mode == 0) //데스메치
 		{
-			death_mode.push(client[id]);
+			death_mode.push(player);		//이부분
 
 			if (death_mode.size() == 2)
 			{
@@ -488,7 +487,7 @@ void processpacket(int id, unsigned char *packet)
 				while (!death_mode.empty())
 				{
 					death_mode_Room->insert_Player(death_mode.front());
-					g_room.insert(make_pair(roomnum, death_mode_Room));
+					g_room.insert(make_pair((int)roomnum, death_mode_Room));
 					death_mode.pop();
 
 					roomnum++;
@@ -500,14 +499,14 @@ void processpacket(int id, unsigned char *packet)
 		}
 		else   //점령전
 		{
-			capture_mode.push(client[id]);
+			capture_mode.push(player);
 			if (capture_mode.size() == 2)
 			{
 				CRoommanager *capture_mode_Room = new CRoommanager();
 				while (!capture_mode.empty())
 				{
-					capture_mode_Room->insert_Player(capture_mode.front());
-					g_room.insert(make_pair(roomnum, capture_mode_Room));
+				//	capture_mode_Room->insert_Player(capture_mode.front());
+				//	g_room.insert(make_pair((int)roomnum, capture_mode_Room));
 					capture_mode.pop();
 
 					roomnum++;

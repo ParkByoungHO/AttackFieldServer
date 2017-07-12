@@ -3,6 +3,7 @@
 #include<WinSock2.h>
 #include<Windows.h>
 #include<iostream>
+#include<atomic>
 #include<thread>
 #include<mutex>
 #include<list>
@@ -12,7 +13,6 @@
 #include<map>
 #include<fstream>
 #include<string>
-#include<atomic>
 
 
 using namespace std;
