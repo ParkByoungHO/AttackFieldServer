@@ -151,4 +151,5 @@ struct CLIENT {
 	CServerPlayer	player;
 	bool			starting = false;
 	float			Starting_Time;
+	int				room_num;
 };

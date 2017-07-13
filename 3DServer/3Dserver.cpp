@@ -353,7 +353,7 @@ void processpacket(int id, unsigned char *packet)
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
-			if (client[i].connected == true)
+			if (client[i].connected == true && client[id].room_num == client[i].room_num)
 			{
 
 				SendPositionPacket(i, id);
@@ -393,7 +393,7 @@ void processpacket(int id, unsigned char *packet)
 
 		for (int i = 0; i < MAX_USER; i++)
 		{
-			if (client[i].connected == true && !client[id].player.Getlife())
+			if (client[i].connected == true && !client[id].player.Getlife() && client[id].room_num == client[i].room_num)
 			{
 				SendLookPacket(i, id);
 			}
@@ -418,12 +418,13 @@ void processpacket(int id, unsigned char *packet)
 			i++;
 		}
 	
-		isCollisionSC = g_room[0]->CollisonCheck(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
+		int romm_num = client[id].room_num;
+		isCollisionSC = g_room[romm_num]->CollisonCheck(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
 		//isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
 			
 		if (isCollisionSC) {
 		
-				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife())
+				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife() && client[id].room_num == client[i].room_num)
 					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
 
 			}
@@ -447,7 +448,7 @@ void processpacket(int id, unsigned char *packet)
 		}
 		for (int i = 0; i < MAX_USER; i++)
 		{
-			if (client[i].connected)
+			if (client[i].connected && client[id].room_num == client[i].room_num)
 			{
 
 				SendPlayerHppacket(i, Hit->id , Hit->Head);
@@ -488,12 +489,11 @@ void processpacket(int id, unsigned char *packet)
 				{
 					death_mode_Room->insert_Player(death_mode.front());
 					g_room.insert(make_pair((int)roomnum, death_mode_Room));
+					death_mode.front()->room_num = roomnum;
 					death_mode.pop();
-
-					roomnum++;
-
 				}
 
+				roomnum++;
 			}
 			
 		}
@@ -509,9 +509,9 @@ void processpacket(int id, unsigned char *packet)
 				//	g_room.insert(make_pair((int)roomnum, capture_mode_Room));
 					capture_mode.pop();
 
-					roomnum++;
 
 				}
+				roomnum++;
 
 			}
 		}
@@ -578,13 +578,14 @@ void Accept_thread()
 		client[new_id].vl_lock.lock();
 		client[new_id].connected = true;
 		client[new_id].sock = new_client;
+		client[new_id].room_num = 12480500;
 		client[new_id].player.setid(new_id);
 
 		if (client[new_id].player.Getid() % 2 == 0)	//짝수일때 레드팀
 			client[new_id].Red_Team = 1;
 
 
-		// DB에서 이전에 로그아웃 한 위치로 다시 재접속
+
 		if (client[new_id].Red_Team)
 		{
 			client[new_id].player.SetPosition(XMFLOAT3(60,2,12));
