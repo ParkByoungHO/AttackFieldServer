@@ -484,16 +484,17 @@ void processpacket(int id, unsigned char *packet)
 
 			if (death_mode.size() == 2)
 			{
+				roomnum++;
 				CRoommanager *death_mode_Room = new CRoommanager();
 				while (!death_mode.empty())
 				{
+					death_mode.front()->room_num = roomnum;
 					death_mode_Room->insert_Player(death_mode.front());
 					g_room.insert(make_pair((int)roomnum, death_mode_Room));
-					death_mode.front()->room_num = roomnum;
 					death_mode.pop();
 				}
 
-				roomnum++;
+				
 			}
 			
 		}
@@ -502,6 +503,8 @@ void processpacket(int id, unsigned char *packet)
 			capture_mode.push(player);
 			if (capture_mode.size() == 2)
 			{
+				roomnum++;
+
 				CRoommanager *capture_mode_Room = new CRoommanager();
 				while (!capture_mode.empty())
 				{
@@ -511,7 +514,6 @@ void processpacket(int id, unsigned char *packet)
 
 
 				}
-				roomnum++;
 
 			}
 		}
@@ -578,7 +580,7 @@ void Accept_thread()
 		client[new_id].vl_lock.lock();
 		client[new_id].connected = true;
 		client[new_id].sock = new_client;
-		client[new_id].room_num = 12480500;
+		client[new_id].room_num = 0;
 		client[new_id].player.setid(new_id);
 
 		if (client[new_id].player.Getid() % 2 == 0)	//Â¦¼öÀÏ¶§ ·¹µåÆÀ
