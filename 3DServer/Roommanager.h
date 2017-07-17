@@ -1,15 +1,25 @@
 #pragma once
+enum Mode
+{
+	None,
+	Death, occupy
+
+};
+
 class CRoommanager
 {
 public:
+	CRoommanager(Mode mode);
 	CRoommanager();
 	~CRoommanager();
 
 	BYTE					m_BlueKill;
 	BYTE					m_RedKill;
 	BYTE					m_Goalkill;
+	Mode					m_Gamemode;
 
-	int						m_timer;	//시간
+
+	int						m_timer;	//시간	게임시작하면 600(10분)을 줘야한다.
 
 	BYTE					m_Occupy;	//누가 점령했는지
 
@@ -18,6 +28,8 @@ public:
 
 	void insert_Player(CLIENT *player);
 	bool CollisonCheck(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction);
+	void update();	//시간이 1씩 없어진다.
+	void Killupdate(BYTE team);
 
 };
 

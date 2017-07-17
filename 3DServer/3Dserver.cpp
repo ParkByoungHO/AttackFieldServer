@@ -477,15 +477,16 @@ void processpacket(int id, unsigned char *packet)
 	{
 		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
 		CLIENT *player = &client[id];
+		
 
-		if (mode->mode == 0) //데스메치
-		{
+		if (mode->mode == 1) //데스메치
+		{ 
 			death_mode.push(player);		//이부분
 
 			if (death_mode.size() == 2)
 			{
 				roomnum++;
-				CRoommanager *death_mode_Room = new CRoommanager();
+				CRoommanager *death_mode_Room = new CRoommanager(Mode :: Death);
 				while (!death_mode.empty())
 				{
 					death_mode.front()->room_num = roomnum;
@@ -505,7 +506,7 @@ void processpacket(int id, unsigned char *packet)
 			{
 				roomnum++;
 
-				CRoommanager *capture_mode_Room = new CRoommanager();
+				CRoommanager *capture_mode_Room = new CRoommanager(Mode::occupy);
 				while (!capture_mode.empty())
 				{
 				//	capture_mode_Room->insert_Player(capture_mode.front());
