@@ -50,7 +50,7 @@ void CRoommanager:: update()
 
 void CRoommanager::Killupdate(BYTE team)
 {
-	if (team == 1)
+	if (team == 2)
 		m_RedKill++;
 	else
 		m_BlueKill++;

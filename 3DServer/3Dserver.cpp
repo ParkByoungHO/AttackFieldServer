@@ -271,14 +271,14 @@ void SendPutPlayerPacket(int clients, int player)
 	Sendpacket(clients, (&packet));
 }
 
-void SendSystemPacket(int clients)	//타이머
+void SendSystemPacket(int clients , int room_num)	//타이머
 {
 	SC_System_kill packet;
 
 	packet.type = SC_SYSTEM;
 	packet.size = sizeof(packet);
-	packet.RED = Red_Kill;
-	packet.BLUE = Blue_kill;
+	packet.RED = g_room[room_num]->m_RedKill;
+	packet.BLUE = g_room[room_num]->m_BlueKill;
 
 	Sendpacket(clients,(&packet));
 }
@@ -456,10 +456,8 @@ void processpacket(int id, unsigned char *packet)
 
 				if (client[i].player.GetPlayerHp() <= 0)
 				{
-					if (client[i].Red_Team)
-						Blue_kill++;
-					else
-						Red_Kill++;
+						g_room[client[i].room_num]->Killupdate(client[i].Red_Team);
+
 
 					add_timer(i, 100, OP_SYSTEM_KILL);
 					add_timer(i, 5000, OP_RESPOND);
@@ -760,10 +758,10 @@ void worker_Thread()
 			case OP_SYSTEM_KILL:
 				for (int i = 0; i < MAX_USER; i++)
 				{
-					if (client[i].connected)
+					if (client[i].connected && client[i].room_num == client[key].room_num)
 					{
 
-						SendSystemPacket(i);
+						SendSystemPacket(i , client[i].room_num);
 
 					}
 				}
