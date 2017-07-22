@@ -95,9 +95,10 @@ void SendTimerpacket(int id)
 
 	packet.size = sizeof(SC_Starting_Timer);
 	packet.type = 9;
-	packet.Starting_timer = client[id].Starting_Time;
+	packet.Starting_timer = g_room[id]->m_timer;
 
-	Sendpacket(id, reinterpret_cast<unsigned char *>(&packet));
+	for(auto p : g_room[id]->m_room_player)
+		Sendpacket(p->player.Getid(), reinterpret_cast<unsigned char *>(&packet));
 }
 
 
@@ -424,7 +425,7 @@ void processpacket(int id, unsigned char *packet)
 			
 		if (isCollisionSC) {
 		
-				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife() && client[id].room_num == client[i].room_num)
+				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife() && client[id].room_num == client[info.m_nObjectID].room_num)
 					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
 
 			}
@@ -483,6 +484,7 @@ void processpacket(int id, unsigned char *packet)
 
 			if (death_mode.size() == 2)
 			{
+			
 				roomnum++;
 				CRoommanager *death_mode_Room = new CRoommanager(Mode :: Death);
 				while (!death_mode.empty())
@@ -493,7 +495,7 @@ void processpacket(int id, unsigned char *packet)
 					death_mode.pop();
 				}
 
-				
+				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
 			}
 			
 		}
@@ -609,7 +611,7 @@ void Accept_thread()
 		Timer = true;
 
 		client[new_id].vl_lock.unlock();
-		add_timer(new_id, 1000, OP_SYSTEM_TIMEER);
+		//add_timer(new_id, 1000, OP_SYSTEM_TIMEER);
 		
 		CCharacterObject* pCharacter = new CCharacterObject();
 		COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
@@ -769,15 +771,17 @@ void worker_Thread()
 			case OP_SYSTEM_TIMEER:
 			{
 
-				static float Time = 600;
-				--Time;
-				client[(int)key].Starting_Time = Time;
-				if (client[(int)key].starting == false)
-				{
+				//static float Time = 600;
+				//--Time;
+				//client[(int)key].Starting_Time = Time;
+				//if (client[(int)key].starting == false)
+				//{
 
-					SendTimerpacket((int)key);
-					client[(int)key].starting = true;
-				}
+				//	SendTimerpacket((int)key);
+				//	client[(int)key].starting = true;
+				//}
+				g_room[key]->update();
+				SendTimerpacket((int)key);
 				add_timer((int)key, 1000, OP_SYSTEM_TIMEER);
 				break;
 			}
