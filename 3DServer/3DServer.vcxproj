@@ -154,6 +154,7 @@
     <ClCompile Include="3Dserver.cpp" />
     <ClCompile Include="CharacterObject.cpp" />
     <ClCompile Include="CollisionManager.cpp" />
+    <ClCompile Include="DB.cpp" />
     <ClCompile Include="MapManager.cpp" />
     <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -167,6 +168,7 @@
   <ItemGroup>
     <ClInclude Include="CharacterObject.h" />
     <ClInclude Include="CollisionManager.h" />
+    <ClInclude Include="DB.h" />
     <ClInclude Include="MapManager.h" />
     <ClInclude Include="MeshManager.h" />
     <ClInclude Include="Object.h" />

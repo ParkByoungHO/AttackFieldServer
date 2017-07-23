@@ -5,6 +5,7 @@
 #define CS_WEAPONE		3
 #define CS_HEAD_HIT		4
 #define CS_GAME_MODE	5
+#define CS_Login		6
 
 #define Dead_Reckoning	7
 
@@ -17,6 +18,26 @@ struct cs_Gamemode
 	BYTE mode;
 
 };
+
+struct cs_login
+{
+	BYTE size;
+	BYTE type;
+
+	DWORD strlen;
+	DWORD passstrlen;
+	char id[10];
+	char password[10];
+};
+
+struct SC_login_CONNECT
+{
+	BYTE size;
+	BYTE type;
+	WORD id;
+	bool connect;
+};
+
 
 struct cs_key_input {	//키버튼 받았을때 
 

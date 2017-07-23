@@ -3,6 +3,7 @@
 #include"ServerPlayer.h"
 #include"Timer.h"
 #include "Roommanager.h"
+#include "DB.h"
 
 CGameTimer g_GameTimer;
 
@@ -21,6 +22,7 @@ queue<CLIENT *> death_mode;
 queue<CLIENT *> capture_mode;
 
 map <int, CRoommanager *>	g_room;
+CDB		g_DB;
 
 
 BYTE Goal_Kill = 10;
@@ -28,10 +30,6 @@ BYTE Red_Kill = 0;
 BYTE Blue_kill = 0;
 BOOL Timer = false;
 atomic_int roomnum = 0;
-
-
-
-
 
 
 
@@ -236,6 +234,8 @@ void Initialize_server()
 	WSADATA wsa;
 	WSAStartup(MAKEWORD(2, 2), &wsa);
 
+	g_DB.connect();
+
 	InitializeCriticalSection(&g_CriticalSection);
 	InitializeCriticalSection(&timer_lock);
 
@@ -324,6 +324,65 @@ void processpacket(int id, unsigned char *packet)
 
 	switch (packet_type)	//키값을 받았을때 처리 해줘야 한다.
 	{
+	case CS_Login:
+	{
+		bool IsExist = false;
+		int count = 0;
+		int passcount = 0;
+		cs_login *my_packet = reinterpret_cast<cs_login *>(packet);
+		int m_id = 0;
+		//cout << (char *)my_packet->id;//<<p->name << endl;
+		for (auto &p : g_DB.GetPlayer_info())
+		{
+			//SQLWCHAR
+			for (int i = 0; i < my_packet->strlen; i++)
+			{
+				if (p->id[i] == my_packet->id[i])
+				{
+					IsExist = true;
+					count++;
+				}
+				else
+				{
+					IsExist = false;
+					break;
+				}
+
+			}
+			for (int i = 0; i < my_packet->strlen; i++)
+			{
+				if (p->password[i] == my_packet->password[i])
+				{
+					IsExist = true;
+					passcount++;
+				}
+				else
+				{
+					IsExist = false;
+					break;
+				}
+			}
+
+			if (count == my_packet->strlen)
+			{
+				//m_id++;
+				break;
+			}
+
+		}
+
+		if (IsExist == false)	//id가 안맞으면 강제종료하는 패킷을 보낸다.
+		{
+			SC_login_CONNECT my_packet;
+			my_packet.connect = false;
+			my_packet.id = id;
+			my_packet.size = sizeof(my_packet);
+			my_packet.type = 13;
+
+			Sendpacket(id , &my_packet);
+		}
+	
+	}
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
 	{
 		cs_key_input *key_button;

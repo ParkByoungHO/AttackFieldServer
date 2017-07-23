@@ -13,6 +13,7 @@
 #include<map>
 #include<fstream>
 #include<string>
+#include <sqlext.h>
 
 
 using namespace std;
