@@ -93,6 +93,13 @@ struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 	//총 35Byte;
 };
 
+struct cs_temp_exit
+{
+	BYTE size;
+	BYTE type;
+};
+
+
 struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다. 
 {
 	BYTE size;
@@ -235,6 +242,12 @@ struct SC_Respawn	//리스폰 5초뒤에 보내줘야 하는것.
 
 	BOOL m_bIsRespawn;
 	XMFLOAT3 m_f3Position;
+};
+
+struct sc_input_game
+{
+	BYTE size;
+	BYTE type;
 };
 
 #pragma pack(pop)

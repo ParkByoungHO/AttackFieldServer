@@ -30,6 +30,7 @@ public:
 	bool CollisonCheck(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction);
 	void update();	//시간이 1씩 없어진다.
 	void Killupdate(BYTE team);
+	void Release();
 
 };
 

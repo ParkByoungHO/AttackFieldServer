@@ -349,7 +349,7 @@ void processpacket(int id, unsigned char *packet)
 				}
 
 			}
-			for (int i = 0; i < my_packet->strlen; i++)
+			for (int i = 0; i < my_packet->passstrlen; i++)
 			{
 				if (p->password[i] == my_packet->password[i])
 				{
@@ -363,7 +363,7 @@ void processpacket(int id, unsigned char *packet)
 				}
 			}
 
-			if (count == my_packet->strlen)
+			if (count == my_packet->strlen && passcount == my_packet->passstrlen)
 			{
 				//m_id++;
 				break;
@@ -381,6 +381,9 @@ void processpacket(int id, unsigned char *packet)
 
 			Sendpacket(id , &my_packet);
 		}
+		else
+
+		break;
 	
 	}
 	case CS_KEY_TYPE:	//여기서 키버튼을 받았을때 처리해줘야 한다.
@@ -485,6 +488,7 @@ void processpacket(int id, unsigned char *packet)
 		if (isCollisionSC) {
 		
 				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife() && client[id].room_num == client[info.m_nObjectID].room_num)
+
 					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
 
 			}
@@ -506,28 +510,30 @@ void processpacket(int id, unsigned char *packet)
 			client[Hit->id].vl_lock.unlock();
 
 		}
+
+		static int k = 0;
+		cout << client[Hit->id].player.GetPlayerHp() << endl;
+
+		if (client[Hit->id].player.GetPlayerHp() <= 0 )//&& !client[Hit->id].player.Getlife()
+		{
+			g_room[client[Hit->id].room_num]->Killupdate(client[Hit->id].Red_Team);
+
+
+			add_timer(Hit->id, 100, OP_SYSTEM_KILL);
+			add_timer(Hit->id, 5000, OP_RESPOND);
+		}
+		
+
 		for (int i = 0; i < MAX_USER; i++)
 		{
 			if (client[i].connected && client[id].room_num == client[i].room_num)
 			{
 
 				SendPlayerHppacket(i, Hit->id , Hit->Head);
-
-
-				if (client[i].player.GetPlayerHp() <= 0)
-				{
-						g_room[client[i].room_num]->Killupdate(client[i].Red_Team);
-
-
-					add_timer(i, 100, OP_SYSTEM_KILL);
-					add_timer(i, 5000, OP_RESPOND);
-				}
-				
 				
 			}
 
 		}
-
 
 	}
 		break;
@@ -541,8 +547,28 @@ void processpacket(int id, unsigned char *packet)
 		{ 
 			death_mode.push(player);		//이부분
 
+
 			if (death_mode.size() == 2)
 			{
+				SendPutPlayerPacket(id, id);	//방이 만들어지고 처음 위치를 보낸다.
+
+				for (int i = 0; i < MAX_USER; ++i)
+				{
+					if (client[i].connected == true)
+					{
+						if (i != id)
+						{
+							SendPutPlayerPacket(id, i);
+							SendPutPlayerPacket(i, id);
+						}
+
+						sc_input_game mode;
+						mode.size = sizeof(sc_input_game);
+						mode.type = 15;
+
+						Sendpacket(i, &mode);
+					}
+				}
 			
 				roomnum++;
 				CRoommanager *death_mode_Room = new CRoommanager(Mode :: Death);
@@ -552,7 +578,10 @@ void processpacket(int id, unsigned char *packet)
 					death_mode_Room->insert_Player(death_mode.front());
 					g_room.insert(make_pair((int)roomnum, death_mode_Room));
 					death_mode.pop();
+
 				}
+
+
 
 				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
 			}
@@ -580,6 +609,29 @@ void processpacket(int id, unsigned char *packet)
 	
 		break;
 	}
+
+	case 7:	//키버튼 받으면 방 종료
+	{
+		cs_temp_exit *temp;
+		temp = reinterpret_cast<cs_temp_exit *>(packet);
+
+		for (int i = 0; i < MAX_USER; i++)
+		{
+			if (client[i].room_num == client[id].room_num)
+			{
+				cs_temp_exit temp;
+				temp.size = sizeof(temp);
+				temp.type = 14;
+
+				Sendpacket(i, &temp);
+			}
+		}
+
+		g_room[client[id].room_num]->Release();
+		break;
+
+	}
+	break;
 	default:
 		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;
@@ -642,21 +694,20 @@ void Accept_thread()
 		client[new_id].sock = new_client;
 		client[new_id].room_num = 0;
 		client[new_id].player.setid(new_id);
+		//client[new_id].player.SetPosition(XMFLOAT3(270, 2, 230));
+
 
 		if (client[new_id].player.Getid() % 2 == 0)	//짝수일때 레드팀
 			client[new_id].Red_Team = 1;
 
 
 
-		if (client[new_id].Red_Team)
-		{
-			client[new_id].player.SetPosition(XMFLOAT3(60,2,12));
+		//if (client[new_id].Red_Team)
+		//{
+		//	client[new_id].player.SetPosition(XMFLOAT3(60,2,12));
 
-		}
-		else
-		{
-			client[new_id].player.SetPosition(XMFLOAT3(65,2,105));
-		}
+		//}
+
 
 
 		client[new_id].player.SetAnimation(XMFLOAT3(0,0,0));
@@ -682,19 +733,19 @@ void Accept_thread()
 		WSARecv(new_client, &client[new_id].recv_overlap.recv_buffer, 1,
 			NULL, &recv_flag, &client[new_id].recv_overlap.original_overlap, NULL);
 
-		SendPutPlayerPacket(new_id, new_id);
+		//SendPutPlayerPacket(new_id, new_id);
 
-		for (int i = 0; i < MAX_USER; ++i)
-		{
-			if (client[i].connected == true )
-			{
-				if (i != new_id)
-				{
-					SendPutPlayerPacket(new_id, i);
-					SendPutPlayerPacket(i, new_id);
-				}
-			}
-		}
+		//for (int i = 0; i < MAX_USER; ++i)
+		//{
+		//	if (client[i].connected == true )	//&& client[i].room_num == client[new_id].room_num 
+		//	{
+		//		if (i != new_id)
+		//		{
+		//			SendPutPlayerPacket(new_id, i);
+		//			SendPutPlayerPacket(i, new_id);
+		//		}
+		//	}
+		//}
 
 		
 
@@ -794,10 +845,12 @@ void worker_Thread()
 				client[(int)key].player.SetPlayerHp(100);		//피를 100만들어주고
 
 
-				if (client[(int)key].Red_Team)						//처음 위치로
-					client[(int)key].player.SetPosition(XMFLOAT3(60, 3, 12));
-				else
-					client[(int)key].player.SetPosition(XMFLOAT3(60, 3, 105));
+				//if (client[(int)key].Red_Team)						//처음 위치로
+				//	client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 12));
+				//else
+				//	client[(int)key].player.SetPosition(XMFLOAT3(270, 2, 230));
+
+				client[(int)key].player.setid(key);
 
 				client[(int)key].vl_lock.unlock();
 
@@ -806,7 +859,7 @@ void worker_Thread()
 				SendRespond(key, (int)key);
 				for (int i = 0; i < MAX_USER; i++)
 				{
-					if (client[i].connected)
+					if (client[i].connected && i != key)
 					{
 						//SendTemp(i, (int)key);
 						SendRespond(i, (int)key);

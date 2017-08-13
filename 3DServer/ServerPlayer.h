@@ -13,7 +13,7 @@ struct PLAYER_MOVE_INFO {
 
 	DWORD dwDirection = 0;
 
-	XMFLOAT3					m_d3dxvPosition;
+	XMFLOAT3					m_d3dxvPosition{ 0,0,0 };
 	XMFLOAT3					m_d3dxvRight;
 	XMFLOAT3					m_d3dxvUp;
 	XMFLOAT3					m_d3dxvLook;
@@ -91,7 +91,7 @@ public:
 	WORD GetKey() { return m_wKeyState; }
 	void DamegeplayerHp(int damage)
 	{
-		if (m_HP <= damage) {
+		if (m_HP - damage <= 0) {
 			m_HP = 0;
 			m_life = true;
 			m_Respawn = true;

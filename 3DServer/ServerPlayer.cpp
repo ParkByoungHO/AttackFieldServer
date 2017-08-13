@@ -192,8 +192,9 @@ void CServerPlayer :: setid(int id)
 	}
 	else
 	{
-		player_move_info.m_d3dxvPosition.x = 60;
+		player_move_info.m_d3dxvPosition.x = 270;
 		player_move_info.m_d3dxvPosition.y = 2;
-		player_move_info.m_d3dxvPosition.z = 20;
+		player_move_info.m_d3dxvPosition.z = 230;
+
 	}
 }

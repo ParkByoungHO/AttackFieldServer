@@ -140,7 +140,7 @@ struct Overlapex {
 
 struct CLIENT {
 	//int				id;
-	bool			connected;
+	bool			connected = false;
 	SOCKET			sock;
 	Overlapex		recv_overlap;
 	int				prev_packet_data;

@@ -34,8 +34,17 @@ bool CRoommanager::CollisonCheck(CollisionInfo& info, XMVECTOR originPos, XMVECT
 	
 }
 
+void CRoommanager::Release()
+{
+	for (auto &p : m_room_player)
+	{
+		p->room_num = 0;
+		
+	}
 
+	m_room_player.clear();
 
+}
 void CRoommanager:: update()
 {
 	if(m_timer > 0 )
