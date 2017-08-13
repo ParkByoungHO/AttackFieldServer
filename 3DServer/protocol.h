@@ -250,4 +250,10 @@ struct sc_input_game
 	BYTE type;
 };
 
+struct cs_create_charter
+{
+	BYTE size;
+	BYTE type;
+};
+
 #pragma pack(pop)

@@ -381,7 +381,7 @@ void processpacket(int id, unsigned char *packet)
 
 			Sendpacket(id , &my_packet);
 		}
-		else
+	
 
 		break;
 	
@@ -439,6 +439,9 @@ void processpacket(int id, unsigned char *packet)
 		client[id].player.SetRun(false);
 		client[id].player.Update(0.05);
 		client[id].vl_lock.unlock();
+
+	
+
 		break;
 	}
 	case CS_ROTATE:		//cx cy를 받아서 로테이트 처리해야한다.
@@ -512,7 +515,7 @@ void processpacket(int id, unsigned char *packet)
 		}
 
 		static int k = 0;
-		cout << client[Hit->id].player.GetPlayerHp() << endl;
+		
 
 		if (client[Hit->id].player.GetPlayerHp() <= 0 )//&& !client[Hit->id].player.Getlife()
 		{
@@ -535,13 +538,12 @@ void processpacket(int id, unsigned char *packet)
 
 		}
 
+	break;
 	}
-		break;
 	case CS_GAME_MODE:
 	{
 		cs_Gamemode *mode = reinterpret_cast<cs_Gamemode *>(packet);
 		CLIENT *player = &client[id];
-		
 
 		if (mode->mode == 1) //데스메치
 		{ 
@@ -550,26 +552,7 @@ void processpacket(int id, unsigned char *packet)
 
 			if (death_mode.size() == 2)
 			{
-				SendPutPlayerPacket(id, id);	//방이 만들어지고 처음 위치를 보낸다.
 
-				for (int i = 0; i < MAX_USER; ++i)
-				{
-					if (client[i].connected == true)
-					{
-						if (i != id)
-						{
-							SendPutPlayerPacket(id, i);
-							SendPutPlayerPacket(i, id);
-						}
-
-						sc_input_game mode;
-						mode.size = sizeof(sc_input_game);
-						mode.type = 15;
-
-						Sendpacket(i, &mode);
-					}
-				}
-			
 				roomnum++;
 				CRoommanager *death_mode_Room = new CRoommanager(Mode :: Death);
 				while (!death_mode.empty())
@@ -577,13 +560,23 @@ void processpacket(int id, unsigned char *packet)
 					death_mode.front()->room_num = roomnum;
 					death_mode_Room->insert_Player(death_mode.front());
 					g_room.insert(make_pair((int)roomnum, death_mode_Room));
+
+
+					sc_input_game mode;
+					mode.size = sizeof(sc_input_game);
+					mode.type = 15;
+			
+					Sendpacket(death_mode.front()->player.Getid(), &mode);
+
+	
+
 					death_mode.pop();
 
 				}
 
 
 
-				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
+				
 			}
 			
 		}
@@ -631,7 +624,33 @@ void processpacket(int id, unsigned char *packet)
 		break;
 
 	}
-	break;
+
+	case 8: //일단 만들어보고 주석달자.
+	{
+
+		auto &player = g_room[client[id].room_num]->m_room_player;
+
+		for(auto &p : g_room[client[id].room_num]->m_room_player)
+			SendPutPlayerPacket(p->player.Getid(), p->player.Getid());	//방이 만들어지고 처음 위치를 보낸다.
+		
+		for (int i = 0; i < MAX_USER; ++i)
+		{
+			if (client[i].connected && i != id )
+			{
+
+				SendPutPlayerPacket(player[id]->player.Getid(), i);
+				SendPutPlayerPacket(i, player[id]->player.Getid());
+
+			}
+		}
+
+
+
+
+		add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
+		break;
+	}
+
 	default:
 		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;
