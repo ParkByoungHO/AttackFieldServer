@@ -344,6 +344,7 @@ void processpacket(int id, unsigned char *packet)
 				}
 				else
 				{
+					count = 0;
 					IsExist = false;
 					break;
 				}
@@ -358,6 +359,7 @@ void processpacket(int id, unsigned char *packet)
 				}
 				else
 				{
+					passcount = 0;
 					IsExist = false;
 					break;
 				}
@@ -568,13 +570,14 @@ void processpacket(int id, unsigned char *packet)
 			
 					Sendpacket(death_mode.front()->player.Getid(), &mode);
 
+					
 	
 
 					death_mode.pop();
 
 				}
 
-
+				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
 
 				
 			}
@@ -625,7 +628,8 @@ void processpacket(int id, unsigned char *packet)
 
 	}
 
-	case 8: //일단 만들어보고 주석달자.
+	case 8: // 클라에서 메인신 들어가서 캐릭터를 만들면 서버로 보내고 
+			// 서버는 받아서 캐릭터 정보를 보내준다.
 	{
 
 		auto &player = g_room[client[id].room_num]->m_room_player;
@@ -633,13 +637,13 @@ void processpacket(int id, unsigned char *packet)
 		for(auto &p : g_room[client[id].room_num]->m_room_player)
 			SendPutPlayerPacket(p->player.Getid(), p->player.Getid());	//방이 만들어지고 처음 위치를 보낸다.
 		
-		for (int i = 0; i < MAX_USER; ++i)
+		for (int i = 0; i < player.size(); ++i)
 		{
-			if (client[i].connected && i != id )
+			if (client[i].connected && client[i].room_num == client[id].room_num )	//방안에 있는 사람들한테 보내야 한다.
 			{
 
-				SendPutPlayerPacket(player[id]->player.Getid(), i);
-				SendPutPlayerPacket(i, player[id]->player.Getid());
+				SendPutPlayerPacket(player[i]->player.Getid(), id);
+				SendPutPlayerPacket(id, player[i]->player.Getid());
 
 			}
 		}
@@ -647,7 +651,7 @@ void processpacket(int id, unsigned char *packet)
 
 
 
-		add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
+		
 		break;
 	}
 
