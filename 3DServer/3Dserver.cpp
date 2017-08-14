@@ -552,7 +552,7 @@ void processpacket(int id, unsigned char *packet)
 			death_mode.push(player);		//이부분
 
 
-			if (death_mode.size() == 4)
+			if (death_mode.size() == 2)
 			{
 
 				roomnum++;
@@ -639,7 +639,7 @@ void processpacket(int id, unsigned char *packet)
 		
 		for (int i = 0; i < player.size(); ++i)
 		{
-			if (client[i].connected && client[i].room_num == client[id].room_num )	//방안에 있는 사람들한테 보내야 한다.
+			if (player[i]->connected && player[i]->room_num == player[i]->room_num )	//방안에 있는 사람들한테 보내야 한다.
 			{
 
 				SendPutPlayerPacket(player[i]->player.Getid(), id);
@@ -649,9 +649,6 @@ void processpacket(int id, unsigned char *packet)
 		}
 
 
-
-
-		
 		break;
 	}
 
@@ -884,11 +881,13 @@ void worker_Thread()
 				{
 					if (client[i].connected && i != key)
 					{
-						//SendTemp(i, (int)key);
-						SendRespond(i, (int)key);
-						SendPlayerHppacket(i, (int)key, false);	//전체적으로 뿌린다.
-						SendPositionPacket(i, (int)key);
-
+						if (client[i].room_num == client[(int)key].room_num)
+						{
+							//SendTemp(i, (int)key);
+							SendRespond(i, (int)key);
+							SendPlayerHppacket(i, (int)key, false);	//전체적으로 뿌린다.
+							SendPositionPacket(i, (int)key);
+						}
 						//add_timer((int)key, 1, OP_RECV);
 					}
 				}
