@@ -87,11 +87,12 @@ public:
 
 
 	int GetPlayerHp() { return m_HP; }
-	void SetPlayerHp(int hp) { m_HP = hp;  m_life = false; }
+	void SetPlayerHp(int hp) { m_HP = hp;}
+	void SetPlayelife(bool life) { m_life = life; }
 	WORD GetKey() { return m_wKeyState; }
 	void DamegeplayerHp(int damage)
 	{
-		if (m_HP - damage <= 0) {
+		if (m_HP - damage <= 0 && !m_life) {
 			m_HP = 0;
 			m_life = true;
 			m_Respawn = true;

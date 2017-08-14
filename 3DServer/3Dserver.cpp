@@ -519,13 +519,13 @@ void processpacket(int id, unsigned char *packet)
 		static int k = 0;
 		
 
-		if (client[Hit->id].player.GetPlayerHp() <= 0 )//&& !client[Hit->id].player.Getlife()
+		if (client[Hit->id].player.GetPlayerHp() <= 0 )	//&& !client[Hit->id].player.Getlife()
 		{
-			g_room[client[Hit->id].room_num]->Killupdate(client[Hit->id].Red_Team);
-
-
+			//static int count = 0;
 			add_timer(Hit->id, 100, OP_SYSTEM_KILL);
 			add_timer(Hit->id, 5000, OP_RESPOND);
+			client[Hit->id].player.SetPlayerHp(100);
+			//cout<< "몇번들어왔니?" << count++ << endl;
 		}
 		
 
@@ -552,7 +552,7 @@ void processpacket(int id, unsigned char *packet)
 			death_mode.push(player);		//이부분
 
 
-			if (death_mode.size() == 2)
+			if (death_mode.size() == 4)
 			{
 
 				roomnum++;
@@ -865,8 +865,8 @@ void worker_Thread()
 			case OP_RESPOND:
 
 				client[(int)key].vl_lock.lock();
-				client[(int)key].player.SetPlayerHp(100);		//피를 100만들어주고
-
+				//client[(int)key].player.SetPlayerHp(100);		//피를 100만들어주고
+				client[(int)key].player.SetPlayelife(false);
 
 				//if (client[(int)key].Red_Team)						//처음 위치로
 				//	client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 12));
@@ -887,22 +887,33 @@ void worker_Thread()
 						//SendTemp(i, (int)key);
 						SendRespond(i, (int)key);
 						SendPlayerHppacket(i, (int)key, false);	//전체적으로 뿌린다.
+						SendPositionPacket(i, (int)key);
 
 						//add_timer((int)key, 1, OP_RECV);
 					}
 				}
 				break;
 			case OP_SYSTEM_KILL:
+			{
+
+				client[(int)key].vl_lock.lock();
+				g_room[client[(int)key].room_num]->Killupdate(client[(int)key].Red_Team);
+				client[(int)key].vl_lock.unlock();
+
 				for (int i = 0; i < MAX_USER; i++)
 				{
 					if (client[i].connected && client[i].room_num == client[key].room_num)
 					{
 
-						SendSystemPacket(i , client[i].room_num);
+						SendSystemPacket(i, client[i].room_num);
 
 					}
 				}
+
+
+
 				break;
+			}
 			case OP_SYSTEM_TIMEER:
 			{
 
