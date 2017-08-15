@@ -13,15 +13,21 @@ public:
 	CRoommanager();
 	~CRoommanager();
 
+	mutex					lock;
+
 	BYTE					m_BlueKill;
 	BYTE					m_RedKill;
 	BYTE					m_Goalkill;
 	Mode					m_Gamemode;
 
 
-	int						m_timer;	//시간	게임시작하면 600(10분)을 줘야한다.
+	float					m_timer;		//시간	게임시작하면 600(10분)을 줘야한다.
+	float					m_Occupytimer;	//특정팀이 몇초동안 점령했는지.
+	bool					m_firstOccupy = true;
 
-	BYTE					m_Occupy;	//누가 점령했는지
+
+
+	BYTE					m_Occupy;		//누가 점령했는지
 
 
 	vector<CLIENT *>		m_room_player;	//방에 들어가있는 플레이어 최대 8명만 들어가게 해야한다.

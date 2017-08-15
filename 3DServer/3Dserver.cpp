@@ -268,6 +268,7 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.RED = Red_Kill;
 	packet.Blue = Blue_kill;
 	packet.Team = client[player].Red_Team;
+	packet.mode = client[player].game_mode;
 
 	Sendpacket(clients, (&packet));
 }
@@ -416,19 +417,19 @@ void processpacket(int id, unsigned char *packet)
 		//cout << client[id].player.x << " " << client[id].player.y << " " << client[id].player.z << endl;
 
 
-		for (int i = 0; i < MAX_USER; i++)
+		//auto &player = g_room[client[id].room_num]->m_room_player;
+		for (auto &p : g_room[client[id].room_num]->m_room_player)
 		{
-			if (client[i].connected == true && client[id].room_num == client[i].room_num)
-			{
+			
 
-				SendPositionPacket(i, id);
+				SendPositionPacket(p->player.Getid(), id);
 				//if(client[id].player.Getfire())
-					sendbulletfire(i, id);
+					sendbulletfire(p->player.Getid(), id);
 				//if (client[id].player.GetReload())
-					sendReload(i, id);
+					sendReload(p->player.Getid(), id);
 				//if (client[id].player.GetRun())
-					SendRun(i, id);
-			}
+					SendRun(p->player.Getid(), id);
+			
 		}
 
 		//cout << serverplayer[id].Getd3dxvVelocity().x<<" "<< serverplayer[id].Getd3dxvVelocity().y<<" "<< serverplayer[id].Getd3dxvVelocity().z<<endl;
@@ -459,12 +460,9 @@ void processpacket(int id, unsigned char *packet)
 		client[id].player.Update(0.05);
 		client[id].vl_lock.unlock();
 
-		for (int i = 0; i < MAX_USER; i++)
+		for (auto &p : g_room[client[id].room_num]->m_room_player)
 		{
-			if (client[i].connected == true && !client[id].player.Getlife() && client[id].room_num == client[i].room_num)
-			{
-				SendLookPacket(i, id);
-			}
+			SendLookPacket(p->player.Getid(), id);
 		}
 		break;
 	}
@@ -524,20 +522,16 @@ void processpacket(int id, unsigned char *packet)
 			//static int count = 0;
 			add_timer(Hit->id, 100, OP_SYSTEM_KILL);
 			add_timer(Hit->id, 5000, OP_RESPOND);
+			client[Hit->id].vl_lock.lock();
 			client[Hit->id].player.SetPlayerHp(100);
+			client[Hit->id].vl_lock.unlock();
 			//cout<< "몇번들어왔니?" << count++ << endl;
 		}
 		
 
-		for (int i = 0; i < MAX_USER; i++)
+		for (auto &p : g_room[client[id].room_num]->m_room_player)
 		{
-			if (client[i].connected && client[id].room_num == client[i].room_num)
-			{
-
-				SendPlayerHppacket(i, Hit->id , Hit->Head);
-				
-			}
-
+				SendPlayerHppacket(p->player.Getid(), Hit->id , Hit->Head);
 		}
 
 	break;
@@ -560,6 +554,7 @@ void processpacket(int id, unsigned char *packet)
 				while (!death_mode.empty())
 				{
 					death_mode.front()->room_num = roomnum;
+					death_mode.front()->game_mode = 1;
 					death_mode_Room->insert_Player(death_mode.front());
 					g_room.insert(make_pair((int)roomnum, death_mode_Room));
 
@@ -586,20 +581,34 @@ void processpacket(int id, unsigned char *packet)
 		else   //점령전
 		{
 			capture_mode.push(player);
-			if (capture_mode.size() == 2)
+			if (capture_mode.size() == 4)
 			{
 				roomnum++;
 
 				CRoommanager *capture_mode_Room = new CRoommanager(Mode::occupy);
 				while (!capture_mode.empty())
 				{
-				//	capture_mode_Room->insert_Player(capture_mode.front());
-				//	g_room.insert(make_pair((int)roomnum, capture_mode_Room));
+					capture_mode.front()->room_num = roomnum;
+					capture_mode.front()->game_mode = 2;
+					capture_mode_Room->insert_Player(capture_mode.front());
+					g_room.insert(make_pair((int)roomnum, capture_mode_Room));
+
+
+					sc_input_game mode;
+					mode.size = sizeof(sc_input_game);
+					mode.type = 15;
+
+					Sendpacket(capture_mode.front()->player.Getid(), &mode);
+
+
+
+
 					capture_mode.pop();
 
 
 				}
 
+				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
 			}
 		}
 	
@@ -649,6 +658,30 @@ void processpacket(int id, unsigned char *packet)
 		}
 
 
+		break;
+	}
+
+	case 9:						//점령성공
+	{
+		auto &player = g_room[client[id].room_num]->m_room_player;
+		sc_occupy temp;
+		temp.size = sizeof(sc_occupy);
+		temp.type = 16;
+
+		g_room[client[id].room_num]->lock.lock();
+		g_room[client[id].room_num]->m_Occupy = client[id].Red_Team;
+		g_room[client[id].room_num]->m_Occupytimer = 0;
+		g_room[client[id].room_num]->lock.unlock();
+		for (int i = 0; i < player.size(); ++i)//방안에 있는 사람들한테 보내야 한다.
+		{
+			temp.redteam = g_room[client[id].room_num]->m_Occupy;
+			Sendpacket(i, &temp);
+		}
+		if (g_room[client[id].room_num]->m_firstOccupy)
+		{
+			add_timer(client[id].room_num, 1000, OP_OCCUPY_TIMER);
+			g_room[client[id].room_num]->m_firstOccupy = false;
+		}
 		break;
 	}
 
@@ -895,9 +928,9 @@ void worker_Thread()
 			case OP_SYSTEM_KILL:
 			{
 
-				client[(int)key].vl_lock.lock();
+				g_room[client[(int)key].room_num]->lock.lock();
 				g_room[client[(int)key].room_num]->Killupdate(client[(int)key].Red_Team);
-				client[(int)key].vl_lock.unlock();
+				g_room[client[(int)key].room_num]->lock.unlock();
 
 				for (int i = 0; i < MAX_USER; i++)
 				{
@@ -925,13 +958,32 @@ void worker_Thread()
 				//	SendTimerpacket((int)key);
 				//	client[(int)key].starting = true;
 				//}
+				g_room[key]->lock.lock();
 				g_room[key]->update();
+				g_room[key]->lock.unlock();
 				SendTimerpacket((int)key);
 				add_timer((int)key, 1000, OP_SYSTEM_TIMEER);
 				break;
 			}
 
-			
+			case OP_OCCUPY_TIMER:	//점령시간 보낸다.
+			{
+
+				g_room[(int)key]->lock.lock();
+				g_room[(int)key]->m_Occupytimer++;
+				g_room[(int)key]->lock.unlock();
+				SC_Occupy_Timer packet;
+
+				packet.size = sizeof(SC_Starting_Timer);
+				packet.type = 17;
+				packet.Occupy_timer = g_room[(int)key]->m_Occupytimer;
+
+				for (auto p : g_room[(int)key]->m_room_player)
+					Sendpacket(p->player.Getid(), reinterpret_cast<unsigned char *>(&packet));
+
+				add_timer((int)key, 1000, OP_OCCUPY_TIMER);
+				break;
+			}
 
 			default:
 				cout << overlap->operation;

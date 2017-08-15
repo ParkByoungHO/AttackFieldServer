@@ -11,6 +11,7 @@ CRoommanager::CRoommanager(Mode mode)
 	m_BlueKill = 0;
 	m_Goalkill = 100;
 	m_timer = 608;
+	m_Occupytimer = 0;
 	m_Gamemode = mode;
 
 }

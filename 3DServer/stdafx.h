@@ -44,6 +44,7 @@ using namespace DirectX::PackedVector;
 #define OP_SYSTEM_KILL		5
 #define OP_SYSTEM_TIMEER	6
 #define OP_POSITION			7
+#define OP_OCCUPY_TIMER		8
 
 
 
@@ -153,4 +154,5 @@ struct CLIENT {
 	bool			starting = false;
 	float			Starting_Time;
 	int				room_num;
+	BYTE			game_mode;
 };

@@ -90,6 +90,8 @@ struct sc_packet_put_player {	//서버에서 처음 접속했을때 위치값과 ID를 부여한다.
 	BYTE Blue;
 	float timer;
 
+	BYTE mode;
+
 	//총 35Byte;
 };
 
@@ -254,6 +256,23 @@ struct cs_create_charter
 {
 	BYTE size;
 	BYTE type;
+};
+
+struct sc_occupy
+{
+	BYTE size;
+	BYTE type;
+	BYTE redteam;
+
+};
+
+struct SC_Occupy_Timer
+{
+	BYTE size;
+	BYTE type;
+
+	float Occupy_timer;
+
 };
 
 #pragma pack(pop)
