@@ -99,6 +99,7 @@ struct cs_temp_exit
 {
 	BYTE size;
 	BYTE type;
+	BYTE Winner;
 };
 
 

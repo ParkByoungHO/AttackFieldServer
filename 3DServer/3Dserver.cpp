@@ -264,9 +264,9 @@ void SendPutPlayerPacket(int clients, int player)
 	packet.z = client[player].player.GetPosition().z;
 	packet.hp = client[player].player.GetPlayerHp();
 	packet.Animation = client[player].player.GetAnimation();
-	packet.Goal = Goal_Kill;
-	packet.RED = Red_Kill;
-	packet.Blue = Blue_kill;
+	packet.Goal = g_room[client[player].room_num]->m_Goalkill;
+	packet.RED = g_room[client[player].room_num]->m_RedKill;
+	packet.Blue = g_room[client[player].room_num]->m_BlueKill;
 	packet.Team = client[player].Red_Team;
 	packet.mode = client[player].game_mode;
 
@@ -546,7 +546,7 @@ void processpacket(int id, unsigned char *packet)
 			death_mode.push(player);		//이부분
 
 
-			if (death_mode.size() == 2)
+			if (death_mode.size() == 1)
 			{
 
 				roomnum++;
@@ -927,23 +927,50 @@ void worker_Thread()
 				break;
 			case OP_SYSTEM_KILL:
 			{
+				int roomnum = client[(int)key].room_num;
+				g_room[roomnum]->lock.lock();
+				g_room[roomnum]->Killupdate(client[(int)key].Red_Team);
+				g_room[roomnum]->lock.unlock();
 
-				g_room[client[(int)key].room_num]->lock.lock();
-				g_room[client[(int)key].room_num]->Killupdate(client[(int)key].Red_Team);
-				g_room[client[(int)key].room_num]->lock.unlock();
-
-				for (int i = 0; i < MAX_USER; i++)
+				if (g_room[roomnum]->m_BlueKill >= 100)	// 블루팀 승리.
 				{
-					if (client[i].connected && client[i].room_num == client[key].room_num)
+					g_room[roomnum]->m_BlueKill == 100;	//100으로 만들고
+
+					for (auto &p : g_room[roomnum]->m_room_player)	//방을 없애준다.
 					{
+						cs_temp_exit temp;
+						temp.size = sizeof(temp);
+						temp.type = 14;
+						temp.Winner = 2;
 
-						SendSystemPacket(i, client[i].room_num);
+						Sendpacket(p->player.Getid(), &temp);
+					}
 
+					g_room[roomnum]->Release();
+				}
+				else if (g_room[roomnum]->m_RedKill >= 100)	//레드팀이 승리
+				{
+					g_room[roomnum]->m_BlueKill == 100;	//100으로 만들고
+
+					for (auto &p : g_room[roomnum]->m_room_player)	//방을 없애준다.
+					{
+						cs_temp_exit temp;
+						temp.size = sizeof(temp);
+						temp.type = 14;
+						temp.Winner = 1;
+
+						Sendpacket(p->player.Getid(), &temp);
+					}
+
+					g_room[roomnum]->Release();
+				}
+				else //두개의 조건이 다 안맞으면 보내준다.
+				{
+				for (auto &p : g_room[roomnum]->m_room_player)
+					{
+						SendSystemPacket(p->player.Getid(), p->room_num);
 					}
 				}
-
-
-
 				break;
 			}
 			case OP_SYSTEM_TIMEER:
@@ -981,7 +1008,24 @@ void worker_Thread()
 				for (auto p : g_room[(int)key]->m_room_player)
 					Sendpacket(p->player.Getid(), reinterpret_cast<unsigned char *>(&packet));
 
-				add_timer((int)key, 1000, OP_OCCUPY_TIMER);
+				if (g_room[(int)key]->m_Occupytimer >= 30)	//특정한팀이 30초 이상 점령했을시 게임 종료.
+				{
+					for (auto &p : g_room[roomnum]->m_room_player)	
+					{
+						cs_temp_exit temp;
+						temp.size = sizeof(temp);
+						temp.type = 14;
+						temp.Winner = g_room[(int)key]->m_Occupy;
+
+						Sendpacket(p->player.Getid(), &temp);
+					}
+
+					g_room[(int)key]->Release();
+				}
+				else
+				{
+					add_timer((int)key, 1000, OP_OCCUPY_TIMER);
+				}
 				break;
 			}
 
