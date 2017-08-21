@@ -86,7 +86,7 @@ public:
 	void SetIsHeadHit(bool set) { m_bIsHeadHit = set; }
 	bool GetIsHeadHit() const { return m_bIsHeadHit; }
 	
-	void SetWorldMatirx(XMMATRIX world) { m_mtxWorld = world; }
+	void SetWorldMatirx(XMMATRIX &world) { m_mtxWorld = world; }
 	XMMATRIX GetWorldMatrix() { return m_mtxWorld;  }
 
 	// ----- Game System Function ----- //

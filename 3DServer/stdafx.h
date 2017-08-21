@@ -64,7 +64,7 @@ using namespace DirectX::PackedVector;
 #define MAX_USER			10
 
 #define MAX_BUFFSIZE		4000
-#define MAX_PACKET_SIZE		255
+#define MAX_PACKET_SIZE		500
 
 #define COLLISION_MGR	CCollisionManager::GetInstance()
 #define MAPDATA_MGR		CMapManager::GetInstance()
@@ -131,7 +131,7 @@ struct Overlapex {
 	WSAOVERLAPPED	original_overlap;
 	int				operation;
 	WSABUF			recv_buffer;
-	unsigned char	socket_buff[MAX_BUFFSIZE];
+	unsigned char	socket_buff[MAX_BUFFSIZE];	//IOCPbuf
 	int				packet_size;
 
 };

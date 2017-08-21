@@ -45,12 +45,16 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 		d3dxvShift *= 3;		// m_fSpeed 로 변경해야함
 		m_Run = true;
 	}
+	else
+		m_Run = false;
 
 	//Mouse
 	if (m_wKeyState & static_cast<int>(KeyInput::eLeftMouse)) {
 		m_fire = true;
 
 	}
+	else
+		m_fire = false;
 	if (m_wKeyState & static_cast<int>(KeyInput::eRightMouse)) {
 
 	}
@@ -58,6 +62,8 @@ void CServerPlayer::UpdateKeyInput(float fTimeElapsed)
 	{
 		m_Reload = true;
 	}
+	else
+		m_Reload = false;
 
 	if (m_wKeyState == 0) {
 

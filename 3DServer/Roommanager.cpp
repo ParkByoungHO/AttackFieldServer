@@ -7,9 +7,9 @@ CRoommanager::CRoommanager()
 }
 CRoommanager::CRoommanager(Mode mode)
 {
-	m_RedKill =98;
-	m_BlueKill = 98;
-	m_Goalkill = 100;
+	m_RedKill = 0;
+	m_BlueKill =0;
+	m_Goalkill = 50;
 	m_timer = 608;
 	m_Occupytimer = 0;
 	m_Gamemode = mode;
@@ -42,9 +42,8 @@ void CRoommanager::Release()
 
 		p->room_num = 0;
 		p->game_mode = 0;
-		CLIENT *client = p;
-		delete client;
-
+	//	delete p;
+		p = nullptr;
 	}
 
 	m_room_player.clear();
