@@ -41,29 +41,35 @@ void error_display(char *msg, int err_num)
 		NULL, err_num,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		(LPTSTR)&lpMsgBuf, 0, NULL);
-	printf("[%s] %s", msg, (char *)lpMsgBuf);
+	//printf("[%s] %s", msg, (char *)lpMsgBuf);
+	std::cout << msg;
+	std::wcout << L"에러" << (int)lpMsgBuf << std::endl;
 	LocalFree(lpMsgBuf);
 }
 
 void Sendpacket(int id, void* packet)
 {
 	//지역변수로 하짐라고 메모리 할당을 해줘야 한다.
+	int psize = reinterpret_cast<unsigned char *>(packet)[0];
+	int ptype = reinterpret_cast<unsigned char *>(packet)[1];
 	Overlapex* send_over = new Overlapex;
-	memset(send_over, 0, sizeof(Overlapex));
 	send_over->operation = OP_SEND;
-	send_over->recv_buffer.buf = reinterpret_cast<char *>(send_over->socket_buff);
-	send_over->recv_buffer.len = reinterpret_cast<unsigned char *>(packet)[0];
-	memcpy(send_over->socket_buff, packet, reinterpret_cast<unsigned char *>(packet)[0]);
+	memcpy(send_over->socket_buff, packet, psize);
+	ZeroMemory(&send_over->original_overlap, sizeof(send_over->original_overlap));
 
-	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0, &send_over->original_overlap, NULL);
-	if ((result != 0) && (WSA_IO_PENDING != result))
+	send_over->recv_buffer.buf = reinterpret_cast<char *>(send_over->socket_buff);
+	send_over->recv_buffer.len = psize;
+
+	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0, 
+		&send_over->original_overlap, NULL);
+	if (result != 0)
 	{
 		int error_num = WSAGetLastError();
-
 		if (WSA_IO_PENDING != error_num)
 			error_display("sendpacket : wsasend", error_num);
-		while (true);
+
 	}
+	std::cout << "Send Packet [" << ptype << "] To Client : " << id << std::endl;
 
 }
 
@@ -71,11 +77,11 @@ void SendRemovePacket(int client, int object)
 {
 	sc_packet_remove_player remove_player;
 
-	remove_player.id = client;
+	remove_player.id = object;
 	remove_player.size = sizeof(remove_player);
 	remove_player.type = SC_REMOVE_PLAYER;
 
-	//Sendpacket(client, &remove_player);
+	Sendpacket(client, &remove_player);
 }
 
 void add_timer(int obj_id, int m_sec, int event_type)
@@ -95,8 +101,8 @@ void SendTimerpacket(int id)
 	packet.type = 9;
 	packet.Starting_timer = g_room[id]->m_timer;
 
-	for(auto p : g_room[id]->m_room_player)
-		Sendpacket(p->player.Getid(), reinterpret_cast<unsigned char *>(&packet));
+	for(auto &p : g_room[id]->m_room_player)
+		Sendpacket(p->player.Getid(), (&packet));
 }
 
 
@@ -222,11 +228,25 @@ void Disconnected(int ci)
 {
 	closesocket(client[ci].sock);
 	client[ci].connected = false;
-	for (int i = 0; i < MAX_USER; i++)
+	auto room = client[ci].room_num;
+	auto& roomplayer = g_room[room]->m_room_player;
+	g_room[room]->lock.lock();
+	for (auto iter = begin(roomplayer); iter != end(roomplayer); ++iter)
 	{
-		if (client[i].connected == true)
-			SendRemovePacket(ci, i);
+		auto client = *iter;
+		if (client->player.Getid() != ci) continue;
+		//delete *iter;
+		//client->vl_lock.lock();
+		roomplayer.erase(iter);
+		//client->vl_lock.unlock();
+		break;
+
 	}
+	for (auto &p : roomplayer)
+	{
+		SendRemovePacket( p->player.Getid() , ci);
+	}
+	g_room[room]->lock.unlock();
 }
 
 void Initialize_server()
@@ -549,7 +569,7 @@ void processpacket(int id, unsigned char *packet)
 			death_mode.push(player);		//이부분
 
 
-			if (death_mode.size() == 4)
+			if (death_mode.size() == 2)
 			{
 
 				roomnum++;
@@ -849,11 +869,11 @@ void worker_Thread()
 		{
 			std::cout << "Error in GQCS\n";
 			int err_no = WSAGetLastError();
-			if (err_no == 64) Disconnected(int(key));
-			while (true);
+			if (err_no == 64) Disconnected(key);
+			else error_display("GQCS : ", WSAGetLastError());
 		}
 		if (0 == io_size) {
-			Disconnected(int(key));
+			Disconnected(key);
 			continue;
 		}
 		
@@ -1036,7 +1056,7 @@ void worker_Thread()
 				packet.Occupy_timer = g_room[(int)key]->m_Occupytimer;
 
 				for (auto& p : g_room[(int)key]->m_room_player)
-					Sendpacket(p->player.Getid(), reinterpret_cast<unsigned char *>(&packet));
+					Sendpacket(p->player.Getid(), (&packet));
 
 				if (g_room[(int)key]->m_Occupytimer >= 30)	//특정한팀이 30초 이상 점령했을시 게임 종료.
 				{
