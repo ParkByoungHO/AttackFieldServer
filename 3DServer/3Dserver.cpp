@@ -69,7 +69,7 @@ void Sendpacket(int id, void* packet)
 			error_display("sendpacket : wsasend", error_num);
 
 	}
-	std::cout << "Send Packet [" << ptype << "] To Client : " << id << std::endl;
+	//std::cout << "Send Packet [" << ptype << "] To Client : " << id << std::endl;
 
 }
 
@@ -226,6 +226,8 @@ void Timer_Thread()
 
 void Disconnected(int ci)
 {
+	if(client[ci].room_num!= 0)
+	{ 
 	closesocket(client[ci].sock);
 	client[ci].connected = false;
 	auto room = client[ci].room_num;
@@ -247,6 +249,7 @@ void Disconnected(int ci)
 		SendRemovePacket( p->player.Getid() , ci);
 	}
 	g_room[room]->lock.unlock();
+	}
 }
 
 void Initialize_server()
@@ -254,7 +257,7 @@ void Initialize_server()
 	WSADATA wsa;
 	WSAStartup(MAKEWORD(2, 2), &wsa);
 
-	g_DB.connect();
+	//g_DB.connect();
 
 	InitializeCriticalSection(&g_CriticalSection);
 	InitializeCriticalSection(&timer_lock);
@@ -402,7 +405,7 @@ void processpacket(int id, unsigned char *packet)
 			my_packet.size = sizeof(my_packet);
 			my_packet.type = 13;
 
-			Sendpacket(id , &my_packet);
+			//Sendpacket(id , &my_packet);
 		}
 	
 
@@ -428,7 +431,7 @@ void processpacket(int id, unsigned char *packet)
 
 		client[id].vl_lock.unlock();
 
-		cout << client[id].player.GetKey() << endl;
+		//cout << client[id].player.GetKey() << endl;
 		
 
 		//cout << key_button->key_button << endl;
@@ -510,17 +513,26 @@ void processpacket(int id, unsigned char *packet)
 			client[i].vl_lock.unlock();
 			i++;
 		}
-	
+		cout <<"ID" <<id << endl;
 		int romm_num = client[id].room_num;
+		g_room[romm_num]->lock.lock();
 		isCollisionSC = g_room[romm_num]->CollisonCheck(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
 		//isCollisionSC = COLLISION_MGR->RayCastCollisionToCharacter(info, XMLoadFloat3(&weapon->position), XMLoadFloat3(&weapon->direction));
-			
-		if (isCollisionSC) {
-		
-				if(client[id].Red_Team != client[info.m_nObjectID].Red_Team && !client[info.m_nObjectID].player.Getlife() && client[id].room_num == client[info.m_nObjectID].room_num)
-
+		g_room[romm_num]->lock.unlock();
+		if (isCollisionSC) 
+		{
+			if (client[id].player.Getid() != client[info.m_nObjectID].player.Getid()) 
+			{
+				if (client[id].Red_Team != client[info.m_nObjectID].Red_Team &&
+					!client[info.m_nObjectID].player.Getlife() &&
+					client[id].room_num == client[info.m_nObjectID].room_num)
+				{
+					cout << " ID : " << client[id].player.Getid() << "	맞은 사람 ID : " << client[info.m_nObjectID].player.Getid() << "다른사람이 맞음" << endl;
 					SendCollisonPacket(info.m_nObjectID, info.m_nObjectID, isCollisionSC, weapon->position, weapon->direction);
-
+				}
+			}
+			else 
+				cout<<" ID : "<< client[id].player.Getid() << "	맞은 사람 ID : " << client[info.m_nObjectID].player.Getid() << "자기자신이 피닮" << endl;
 			}
 		break;
 	}
