@@ -199,8 +199,10 @@ struct CS_Head_Collison
 	BYTE type;
 
 	BOOL Head;
-
 	BYTE id;
+
+	XMFLOAT3 position;
+	XMFLOAT3 direction;
 };
 
 struct SC_Player_Hp
@@ -274,6 +276,25 @@ struct SC_Occupy_Timer
 
 	float Occupy_timer;
 
+};
+
+struct SC_Damegedirection
+{
+	BYTE size;
+	BYTE type;
+
+
+	XMFLOAT3 position;
+	XMFLOAT3 direction;
+
+};
+
+struct CS_Fire
+{
+	BYTE size;
+	BYTE type;
+
+	XMFLOAT3 FireDirection;
 };
 
 #pragma pack(pop)

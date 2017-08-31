@@ -22,11 +22,11 @@ CRoommanager::~CRoommanager()
 }
 
 
-void CRoommanager::insert_Player(CLIENT *player)
+void CRoommanager::insert_Player(int id)
 {
-
-	m_room_player.push_back(player);	//이부분
-
+	lock.lock();
+	m_room_id.push_back(id);	//이부분
+	lock.unlock();
 }
 
 bool CRoommanager::CollisonCheck(CollisionInfo& info, XMVECTOR originPos, XMVECTOR direction)
@@ -37,23 +37,14 @@ bool CRoommanager::CollisonCheck(CollisionInfo& info, XMVECTOR originPos, XMVECT
 
 void CRoommanager::Release()
 {
-	for (auto &p : m_room_player)
-	{
-
-		p->room_num = 0;
-		p->game_mode = 0;
-	//	delete p;
-		p = nullptr;
-	}
-
-	m_room_player.clear();
-	
-
+	lock.lock();
+	m_room_id.clear();	
+	lock.unlock();
 }
 void CRoommanager:: update()
 {
 	if(m_timer > 0 )
-		m_timer--;
+		m_timer-=10;
 	else
 	{
 		Release();// 시간 다되면 종료.

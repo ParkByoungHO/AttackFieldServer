@@ -13,10 +13,10 @@ struct PLAYER_MOVE_INFO {
 
 	DWORD dwDirection = 0;
 
-	XMFLOAT3					m_d3dxvPosition{ 0,0,0 };
-	XMFLOAT3					m_d3dxvRight;
-	XMFLOAT3					m_d3dxvUp;
-	XMFLOAT3					m_d3dxvLook;
+	XMFLOAT3			m_d3dxvPosition{ 0,0,0 };
+	XMFLOAT3			m_d3dxvRight;
+	XMFLOAT3			m_d3dxvUp;
+	XMFLOAT3			m_d3dxvLook;
 
 	XMFLOAT3					m_d3dxvVelocity;	//이값을 클라한테 넘겨야 한다.
 	XMFLOAT3     				m_d3dxvGravity;
@@ -29,8 +29,8 @@ struct PLAYER_MOVE_INFO {
 	float           			m_fMaxVelocityY;
 	float           			m_fFriction;
 
-	float           			m_fPitch;
-	float           			m_fYaw;
+	volatile float           	m_fPitch;
+	volatile float     			m_fYaw;
 	float           			m_fRoll;
 	float						m_fSpeed = 0.5;
 
@@ -44,13 +44,13 @@ struct PLAYER_MOVE_INFO {
 class CServerPlayer
 {
 private:
-	WORD			 m_wKeyState = 0;
+	volatile WORD	 m_wKeyState = 0;
 	PLAYER_MOVE_INFO player_move_info;
 
 	XMMATRIX		m_mtxWorld = XMMatrixIdentity();
 
 	int				m_HP = 100;
-	int				m_id = 0;
+	volatile int	m_id = 0;
 
 
 	bool			m_life = false;	//죽으면 true가 되고 리스폰 구현할 예정.
@@ -108,7 +108,7 @@ public:
 	
 	void SetAnimation(XMFLOAT3 Animation) { player_move_info.Animation = Animation; }
 	XMFLOAT3 GetAnimation() { return player_move_info.Animation; }
-	void SetPosition(XMFLOAT3 Position) { player_move_info.m_d3dxvPosition = Position; }
+	void SetPosition(  XMFLOAT3 Position) { player_move_info.m_d3dxvPosition = Position; }
 
 	void SetFireDirection(XMFLOAT3	fireDirection) { player_move_info.FireDirection = fireDirection; }
 	XMFLOAT3 GetFireDirection() { return player_move_info.FireDirection; }

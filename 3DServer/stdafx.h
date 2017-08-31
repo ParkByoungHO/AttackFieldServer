@@ -61,7 +61,7 @@ using namespace DirectX::PackedVector;
 #define SC_RESPAWN			11
 #define SC_RUN				12
 
-#define MAX_USER			10
+#define MAX_USER			1000
 
 #define MAX_BUFFSIZE		4000
 #define MAX_PACKET_SIZE		500
