@@ -1,8 +1,12 @@
 #pragma once
 
+
 #include<WinSock2.h>
 #include<Windows.h>
 #include<iostream>
+#include <stdio.h>
+#include <tchar.h>
+#include <DbgHelp.h>
 #include<atomic>
 #include<thread>
 #include<mutex>
@@ -14,6 +18,8 @@
 #include<fstream>
 #include<string>
 #include <sqlext.h>
+
+
 
 
 using namespace std;

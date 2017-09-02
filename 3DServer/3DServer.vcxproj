@@ -156,6 +156,7 @@
     <ClCompile Include="CollisionManager.cpp" />
     <ClCompile Include="DB.cpp" />
     <ClCompile Include="MapManager.cpp" />
+    <ClCompile Include="mdump.cpp" />
     <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="Roommanager.cpp" />
@@ -170,6 +171,7 @@
     <ClInclude Include="CollisionManager.h" />
     <ClInclude Include="DB.h" />
     <ClInclude Include="MapManager.h" />
+    <ClInclude Include="mdump.h" />
     <ClInclude Include="MeshManager.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="protocol.h" />

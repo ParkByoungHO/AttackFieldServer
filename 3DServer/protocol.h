@@ -245,7 +245,7 @@ struct SC_Respawn	//리스폰 5초뒤에 보내줘야 하는것.
 	BYTE type;
 	BYTE id;
 
-	BOOL m_bIsRespawn;
+
 	XMFLOAT3 m_f3Position;
 };
 
@@ -285,7 +285,6 @@ struct SC_Damegedirection
 
 
 	XMFLOAT3 position;
-	XMFLOAT3 direction;
 
 };
 
@@ -295,6 +294,18 @@ struct CS_Fire
 	BYTE type;
 
 	XMFLOAT3 FireDirection;
+};
+
+struct SC_fullHPpacket
+{
+	BYTE size;
+	BYTE type;
+
+	BYTE Hp;
+	BYTE id;
+
+	BOOL live;
+
 };
 
 #pragma pack(pop)
