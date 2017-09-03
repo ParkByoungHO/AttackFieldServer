@@ -10,7 +10,7 @@ CRoommanager::CRoommanager(Mode mode)
 	m_RedKill = 0;
 	m_BlueKill =0;
 	m_Goalkill = 50;
-	m_timer = 608;
+	m_timer = 610;
 	m_Occupytimer = 0;
 	m_Gamemode = mode;
 
@@ -39,17 +39,18 @@ void CRoommanager::Release()
 {
 	lock.lock();
 	m_room_id.clear();	
+	m_RedKill = 0;
+	m_BlueKill = 0;
+	m_Goalkill = 0;
+	m_timer = 0;
+	m_Occupytimer = 0;
+	m_Gamemode = Mode::None;
 	lock.unlock();
 }
 void CRoommanager:: update()
 {
 	if(m_timer > 0 )
 		m_timer-=10;
-	else
-	{
-		Release();// 시간 다되면 종료.
-	}
-
 
 }
 

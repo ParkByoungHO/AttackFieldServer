@@ -24,8 +24,10 @@ queue<CLIENT *> death_mode;
 queue<CLIENT *> capture_mode;
 
 map <int, CRoommanager*>	g_room;
+
+
 CRoommanager death_mode_Room[500]{ {Mode::Death},{ Mode::Death },{ Mode::Death }, };
-CRoommanager capture_mode_Room[500]{ {Mode::occupy}, };
+CRoommanager capture_mode_Room[500]{ {Mode::occupy},{ Mode::Death },{ Mode::Death },{ Mode::Death }, };
 
 
 CDB		g_DB;
@@ -35,7 +37,9 @@ BYTE Goal_Kill = 10;
 BYTE Red_Kill = 0;
 BYTE Blue_kill = 0;
 BOOL Timer = false;
-atomic_int roomnum = 1;
+atomic_int death_roomnum = 1;
+atomic_int catch_roomnum = 1;
+atomic_int room_num = 1;
 
 
 
@@ -66,7 +70,7 @@ void Sendpacket(int id, void* packet)
 	send_over->recv_buffer.buf = reinterpret_cast<char *>(send_over->socket_buff);
 	send_over->recv_buffer.len = psize;
 
-	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0, 
+	int result = WSASend(client[id].sock, &send_over->recv_buffer, 1, NULL, 0,
 		&send_over->original_overlap, NULL);
 	if (result != 0)
 	{
@@ -85,7 +89,7 @@ void SendRemovePacket(int client, int object)
 
 	remove_player.id = object;
 	remove_player.size = sizeof(remove_player);
-	remove_player.type = SC_REMOVE_PLAYER;
+	remove_player.type = ePacket_Disconnect;
 
 	Sendpacket(client, &remove_player);
 }
@@ -99,15 +103,15 @@ void add_timer(int obj_id, int m_sec, int event_type)
 
 }
 
-void SendTimerpacket(int id)	
+void SendTimerpacket(int id)
 {
 	SC_Starting_Timer packet;
 
 	packet.size = sizeof(SC_Starting_Timer);
-	packet.type = 9;
+	packet.type = ePacket_GameTimer;
 	packet.Starting_timer = g_room[id]->m_timer;
 
-	for(auto &p : g_room[id]->m_room_id)
+	for (auto &p : g_room[id]->m_room_id)
 		Sendpacket(p, (&packet));
 }
 
@@ -117,13 +121,16 @@ void SendPositionPacket(int id, int object)
 	sc_packet_pos packet;
 	packet.id = object;
 	packet.size = sizeof(packet);
-	packet.type = SC_POS;
+	packet.type = ePacket_Update;
 	packet.key_button = client[object].player.GetKey();
 	packet.x = client[object].player.GetPosition().x;
 	packet.y = client[object].player.GetPosition().y;
 	packet.z = client[object].player.GetPosition().z;
 	packet.Hp = client[object].player.GetPlayerHp();
 	packet.Animation = client[object].player.GetAnimation();
+	packet.FireDirection = client[object].player.GetFireDirection();
+
+
 
 	//cout<<object<< " " << packet.key_button << endl;
 
@@ -141,10 +148,10 @@ void sendbulletfire(int id, int object)
 	packet.type = SC_PUT_Bullet;
 
 	packet.fire = true;
-	XMStoreFloat3(&packet.FireDirection , client[object].player.GetLook());
+	XMStoreFloat3(&packet.FireDirection, client[object].player.GetLook());
 
 	Sendpacket(id, (&packet));
-	
+
 }
 
 void sendReload(int id, int object)
@@ -180,13 +187,13 @@ void SendLookPacket(int id, int object)
 	packet.id = object;
 
 	packet.size = sizeof(packet);
-	packet.type = SC_ROTATE;
+	packet.type = ePacket_MouseRotate;
 
 	packet.x = client[object].player.getfPitch();
 	packet.y = client[object].player.getYaw();
 	packet.z = 0;
 
-	Sendpacket(id,(&packet));
+	Sendpacket(id, (&packet));
 }
 
 void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, XMFLOAT3 direction)
@@ -194,7 +201,7 @@ void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, X
 	SC_Collison packet;
 	packet.size = sizeof(SC_Collison);
 	packet.id = object;
-	packet.type = SC_ColliSion;
+	packet.type = ePacket_CollisionCheck;
 	packet.collision = collision;
 	packet.position = position;
 	packet.direction = direction;
@@ -202,21 +209,6 @@ void SendCollisonPacket(int id, int object, bool collision, XMFLOAT3 position, X
 	Sendpacket(id, (&packet));
 }
 
-void SendfullHp(int id, int object)
-{
-	SC_fullHPpacket packet;
-
-	packet.size = sizeof(packet);
-	packet.id = object;
-	packet.type = 19;//일단 몇번으로 할지 보자.;
-	packet.Hp = 100;
-
-	packet.live = client[object].player.Getlife();
-
-
-		
-	Sendpacket(id, (&packet));
-}
 
 void Timer_Thread()
 {
@@ -237,10 +229,10 @@ void Timer_Thread()
 			Overlapex *overlapped = new Overlapex;
 			overlapped->operation = top_object.event_type;
 			ZeroMemory(&overlapped->original_overlap, sizeof(overlapped->original_overlap));
-			PostQueuedCompletionStatus(g_hIocp, 1, top_object.obj_id , *(reinterpret_cast<LPOVERLAPPED *>(&overlapped)));
-		
+			PostQueuedCompletionStatus(g_hIocp, 1, top_object.obj_id, *(reinterpret_cast<LPOVERLAPPED *>(&overlapped)));
 
-		} 
+
+		}
 
 	} while (true);
 
@@ -248,27 +240,27 @@ void Timer_Thread()
 
 void Disconnected(int ci)
 {
-	if(client[ci].room_num!= 0)
-	{ 
-	closesocket(client[ci].sock);
-	client[ci].connected = false;
-	auto room = client[ci].room_num;
-	auto& roomplayer = g_room[room]->m_room_id;
-	g_room[room]->lock.lock();
-	for (auto &iter = roomplayer.begin(); iter != roomplayer.end(); ++iter)
+	if (client[ci].room_num != 0)
 	{
-		auto client = *iter;
-		if (client != ci) continue;
-		//delete *iter;
-		roomplayer.erase(iter);
-		break;
+		closesocket(client[ci].sock);
+		client[ci].connected = false;
+		auto room = client[ci].room_num;
+		auto& roomplayer = g_room[room]->m_room_id;
+		g_room[room]->lock.lock();
+		for (auto &iter = roomplayer.begin(); iter != roomplayer.end(); ++iter)
+		{
+			auto client = *iter;
+			if (client != ci) continue;
+			//delete *iter;
+			roomplayer.erase(iter);
+			break;
 
-	}
-	for (auto &p : roomplayer)
-	{
-		SendRemovePacket( p , ci);
-	}
-	g_room[room]->lock.unlock();
+		}
+		for (auto &p : roomplayer)
+		{
+			SendRemovePacket(p, ci);
+		}
+		g_room[room]->lock.unlock();
 	}
 }
 
@@ -295,7 +287,7 @@ void Initialize_server()
 
 	::bind(g_socket, reinterpret_cast<sockaddr *>(&listen_addr), sizeof(listen_addr));
 
-	if( 0 != listen(g_socket, MAX_USER))
+	if (0 != listen(g_socket, MAX_USER))
 	{
 		error_display("Listen Error : ", WSAGetLastError());
 	}
@@ -322,7 +314,7 @@ void SendPutPlayerPacket(int clients, int player)
 
 	packet.id = player;
 	packet.size = sizeof(packet);
-	packet.type = SC_PUT_PLAYER;
+	packet.type = ePacket_CreateOthderPlayer;
 	packet.x = client[player].player.GetPosition().x;
 	packet.y = client[player].player.GetPosition().y;
 	packet.z = client[player].player.GetPosition().z;
@@ -337,16 +329,16 @@ void SendPutPlayerPacket(int clients, int player)
 	Sendpacket(clients, (&packet));
 }
 
-void SendSystemPacket(int clients , int room_num)	//타이머
+void SendSystemPacket(int clients, int room_num)	//킬
 {
 	SC_System_kill packet;
 
-	packet.type = SC_SYSTEM;
+	packet.type = ePacket_KillUpdate;
 	packet.size = sizeof(packet);
 	packet.RED = g_room[room_num]->m_RedKill;
 	packet.BLUE = g_room[room_num]->m_BlueKill;
 
-	Sendpacket(clients,(&packet));
+	Sendpacket(clients, (&packet));
 }
 
 
@@ -355,28 +347,31 @@ void SendPlayerHppacket(int clients, int player, bool Head)	//타이머
 {
 	SC_Player_Hp packet;
 
-	packet.type = SC_PUT_HP;
+	packet.type = ePacket_HP;
 	packet.size = sizeof(packet);
 	packet.Hp = client[player].player.GetPlayerHp();
 	packet.id = player;
 	packet.Head = Head;
 	packet.live = client[player].player.Getlife();
-	
 
-	Sendpacket(clients,(&packet));
+
+	Sendpacket(clients, (&packet));
 }
 
 void SendRespond(int clients, int player)
 {
 	SC_Respawn packet;
 	packet.size = sizeof(SC_Respawn);
-	packet.type = SC_RESPAWN;
+	packet.type = ePacket_Respawn;
 	packet.id = player;
 	packet.m_f3Position = client[player].player.GetPosition();
 
 
+	//cout << packet.m_f3Position.x << "	" << packet.m_f3Position.y << "	" << packet.m_f3Position.z << endl;
+
+
 	Sendpacket(clients, (&packet));
-		
+
 }
 
 void processpacket(volatile int id, unsigned char *packet)
@@ -397,10 +392,11 @@ void processpacket(volatile int id, unsigned char *packet)
 		client[id].vl_lock.lock();
 		client[id].player.Setkey(key_button->key_button);
 
+		client[id].player.SetFireDirection(key_button->FireDirection);
 
 		XMFLOAT3 Temp(key_button->x, key_button->y, key_button->z); //클라에서 처리된값다시 보내기.
 		client[id].player.SetPosition(Temp);
-		
+
 		client[id].player.SetAnimation(key_button->Animation);
 		client[id].player.UpdateKeyInput(0.05);
 		//COLLISION_MGR->m_vecCharacterContainer[id]->SetWorldMatirx(client[id].player.GetWorldMatrix());
@@ -409,7 +405,7 @@ void processpacket(volatile int id, unsigned char *packet)
 
 
 
-	
+
 
 		//client[id].player.x = serverplayer[id].Getd3dxvVelocity().x;
 		//client[id].player.y = 
@@ -419,7 +415,7 @@ void processpacket(volatile int id, unsigned char *packet)
 
 		//auto &player = g_room[client[id].room_num]->m_room_player;
 
-	
+
 
 		for (auto p : g_room[client[id].room_num]->m_room_id)
 		{
@@ -427,7 +423,7 @@ void processpacket(volatile int id, unsigned char *packet)
 			//if(client[id].player.Getfire())
 			//	sendbulletfire(p->player.Getid(), id);
 
-			
+
 			//if(client[id].player.GetReload())
 			//	sendReload(p->player.Getid(), id);
 
@@ -437,6 +433,7 @@ void processpacket(volatile int id, unsigned char *packet)
 			//	SCENE_MGR->g_pMainScene->GetCharcontainer()[i]->SetIsFire(true);
 			//else
 			//	SCENE_MGR->g_pMainScene->GetCharcontainer()[i]->SetIsFire(false);
+
 			if (p != id)
 			{
 				SendPositionPacket(p, id);	//포지셔은 계속보낸다.
@@ -451,10 +448,10 @@ void processpacket(volatile int id, unsigned char *packet)
 		//client[id].player.setreload(false);
 		//client[id].player.SetRun(false);
 		client[id].player.Setd3dxvVelocity(0, 0, 0);
-		client[id].player.SetAnimation(XMFLOAT3(0,0,0));
+		client[id].player.SetAnimation(XMFLOAT3(0, 0, 0));
 		client[id].vl_lock.unlock();
 
-	
+
 
 		break;
 	}
@@ -483,16 +480,16 @@ void processpacket(volatile int id, unsigned char *packet)
 	}
 	case CS_WEAPONE:
 	{
-		
+
 		cs_weapon *weapon = reinterpret_cast<cs_weapon *>(packet);
 		CollisionInfo info;
 		volatile bool isCollisionSC = false;
 
 		int i = 0;
-		
+
 		for (auto &character : COLLISION_MGR->m_vecCharacterContainer)
 		{
-		
+
 			client[i].vl_lock.lock();
 			character->SetWorldMatirx(client[i].player.GetWorldMatrix());
 			client[i].vl_lock.unlock();
@@ -507,9 +504,9 @@ void processpacket(volatile int id, unsigned char *packet)
 
 
 
-		if (isCollisionSC) 
+		if (isCollisionSC)
 		{
-			if (client[id].player.Getid() != client[info.m_nObjectID].player.Getid()) 
+			if (client[id].player.Getid() != client[info.m_nObjectID].player.Getid())
 			{
 				if (client[id].Red_Team != client[info.m_nObjectID].Red_Team &&
 					!client[info.m_nObjectID].player.Getlife() &&
@@ -530,7 +527,7 @@ void processpacket(volatile int id, unsigned char *packet)
 			client[Hit->id].vl_lock.lock();
 			client[Hit->id].player.DamegeplayerHp(70);
 			client[Hit->id].vl_lock.unlock();
-		
+
 		}
 		else {
 			client[Hit->id].vl_lock.lock();
@@ -542,7 +539,7 @@ void processpacket(volatile int id, unsigned char *packet)
 		SC_Damegedirection target;
 
 		target.size = sizeof(SC_Damegedirection);
-		target.type = 18;
+		target.type = ePacket_DamageInfo;
 		target.position = Hit->position;
 
 		Sendpacket(Hit->id, &target);
@@ -550,9 +547,9 @@ void processpacket(volatile int id, unsigned char *packet)
 		client[Hit->id].vl_lock.lock();
 		int roomnum = client[Hit->id].room_num;
 		client[Hit->id].vl_lock.unlock();
-		
 
-		if (client[Hit->id].player.GetPlayerHp() <= 0 )	//&& !client[Hit->id].player.Getlife()
+
+		if (client[Hit->id].player.GetPlayerHp() <= 0)	//&& !client[Hit->id].player.Getlife()
 		{
 			//static int count = 0;
 			//add_timer(Hit->id, 100, OP_SYSTEM_KILL);
@@ -571,7 +568,7 @@ void processpacket(volatile int id, unsigned char *packet)
 				{
 					cs_temp_exit temp;
 					temp.size = sizeof(temp);
-					temp.type = 14;
+					temp.type = ePacket_SceneChange;
 					temp.Winner = 2;
 
 					Sendpacket(p, &temp);
@@ -588,7 +585,7 @@ void processpacket(volatile int id, unsigned char *packet)
 				{
 					cs_temp_exit temp;
 					temp.size = sizeof(temp);
-					temp.type = 14;
+					temp.type = ePacket_SceneChange;
 					temp.Winner = 1;
 
 					Sendpacket(p, &temp);
@@ -606,12 +603,12 @@ void processpacket(volatile int id, unsigned char *packet)
 
 
 		}
-			
+
 		for (auto &p : g_room[client[id].room_num]->m_room_id)
 		{
 			SendPlayerHppacket(p, Hit->id, Hit->Head);
 		}
-	break;
+		break;
 	}
 	case CS_GAME_MODE:
 	{
@@ -620,65 +617,65 @@ void processpacket(volatile int id, unsigned char *packet)
 
 		if (mode->mode == 1) //데스메치
 		{
-			
-		
-			death_mode_Room[roomnum].insert_Player(id);
 
-			if (death_mode_Room[roomnum].m_room_id.size() == 2)
+
+			death_mode_Room[death_roomnum].insert_Player(id);
+
+			if (death_mode_Room[death_roomnum].m_room_id.size() == 2)
 			{
 
 				sc_input_game mode;
 				mode.size = sizeof(sc_input_game);
-				mode.type = 15;
+				mode.type = ePacket_SuccessMyCharacter;
 
-				for (auto p : death_mode_Room[roomnum].m_room_id)
+				for (auto p : death_mode_Room[death_roomnum].m_room_id)
 				{
 					client[p].vl_lock.lock();
-					client[p].room_num = roomnum;
+					client[p].player.setid(p);
+					client[p].room_num = room_num;
+					client[p].game_mode = 1;
 					client[p].vl_lock.unlock();
+					client[p].player.SetPlayerHp(100);
 					Sendpacket(p, &mode);
 				}
-				g_room.insert(make_pair((int)roomnum, &death_mode_Room[roomnum]));
-				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
-				roomnum++;
+				g_room.insert(make_pair((int)room_num, &death_mode_Room[death_roomnum]));
+				add_timer(room_num, 1000, OP_SYSTEM_TIMEER);
+				room_num++;
+				death_roomnum++;
 			}
-			
+
 		}
 		else   //점령전
 		{
-			capture_mode.push(player);
-			if (capture_mode.size() == 2)
+
+			client[id].player.setid(id);
+			capture_mode_Room[catch_roomnum].insert_Player(id);
+
+
+			if (capture_mode_Room[catch_roomnum].m_room_id.size() == 2)
 			{
 
-				while (!capture_mode.empty())
+				sc_input_game mode;
+				mode.size = sizeof(sc_input_game);
+				mode.type = ePacket_SuccessMyCharacter;
+
+				for (auto p : capture_mode_Room[catch_roomnum].m_room_id)
 				{
-					capture_mode.front()->vl_lock.lock();
-					capture_mode.front()->room_num = roomnum;
-					capture_mode.front()->game_mode = 2;
-					capture_mode.front()->vl_lock.unlock();
-					capture_mode_Room->insert_Player(client[id].player.Getid());
-					g_room.insert(make_pair((int)roomnum, capture_mode_Room));
-
-
-					sc_input_game mode;
-					mode.size = sizeof(sc_input_game);
-					mode.type = 15;
-
-					Sendpacket(capture_mode.front()->player.Getid(), &mode);
-
-
-
-
-					capture_mode.pop();
-					roomnum++;
-
-
+					client[p].vl_lock.lock();
+					client[p].player.setid(p);
+					client[p].room_num = room_num;
+					client[p].game_mode = 2;
+					client[p].vl_lock.unlock();
+					Sendpacket(p, &mode);
 				}
-
-				add_timer(roomnum, 1000, OP_SYSTEM_TIMEER);
+				g_room.insert(make_pair((int)room_num, &capture_mode_Room[catch_roomnum]));
+				add_timer(room_num, 1000, OP_SYSTEM_TIMEER);
+				room_num++;
+				catch_roomnum++;
 			}
+
 		}
-	
+
 		break;
 	}
 
@@ -737,7 +734,7 @@ void processpacket(volatile int id, unsigned char *packet)
 			my_packet.connect = false;
 			my_packet.id = id;
 			my_packet.size = sizeof(my_packet);
-			my_packet.type = 13;
+			my_packet.type = ePacket_LoginFail;
 
 			//Sendpacket(id , &my_packet);
 		}
@@ -773,22 +770,22 @@ void processpacket(volatile int id, unsigned char *packet)
 			// 서버는 받아서 캐릭터 정보를 보내준다.
 	{
 
-		for (auto p : g_room[client[id].room_num]->m_room_id )
+		for (auto p : g_room[client[id].room_num]->m_room_id)
 		{
 			SendPutPlayerPacket(p, p);	//방이 만들어지고 처음 위치를 보낸다.
 		}
 
 		for (int i = 0; i < g_room[client[id].room_num]->m_room_id.size() - 1; i++)	//방안에 있는 사람들한테 보내야 한다.
 		{
-			if(id != g_room[client[id].room_num]->m_room_id[i])
+			if (id != g_room[client[id].room_num]->m_room_id[i])
 			{
 				SendPutPlayerPacket(g_room[client[id].room_num]->m_room_id[i], id);
 				SendPutPlayerPacket(id, g_room[client[id].room_num]->m_room_id[i]);
-			//	cout << " 내 id : " << id << "    누구에게? : " << i << endl;
+				//cout << " 내 id : " << id << "    누구에게? : " << i << endl;
 			}
 		}
 
-	
+
 		break;
 	}
 
@@ -798,7 +795,7 @@ void processpacket(volatile int id, unsigned char *packet)
 		auto &player_id = g_room[client[id].room_num]->m_room_id;
 		sc_occupy temp;
 		temp.size = sizeof(sc_occupy);
-		temp.type = 16;
+		temp.type = ePacket_OccupyTeam;
 
 		g_room[client[id].room_num]->lock.lock();
 		g_room[client[id].room_num]->m_Occupy = client[id].Red_Team;
@@ -812,13 +809,13 @@ void processpacket(volatile int id, unsigned char *packet)
 		}
 		if (g_room[client[id].room_num]->m_firstOccupy)
 		{
-			add_timer(client[id].room_num, 1000, OP_OCCUPY_TIMER);
+			//add_timer(client[id].room_num, 1000, OP_OCCUPY_TIMER);
 			g_room[client[id].room_num]->m_firstOccupy = false;
 		}
 		break;
 	}
 
-	case 10:
+	case 10:	//총알 버튼 따로 떼어냄!
 	{
 
 		CS_Fire *Fire = reinterpret_cast<CS_Fire *>(packet);
@@ -837,16 +834,37 @@ void processpacket(volatile int id, unsigned char *packet)
 				//cout << "발포한 ID : " << id << "패킷 받는 : " << p << endl;
 			}
 		}
-	}
 	break;
+	}
 
+	case 11:
+	{
+		cs_temp_exit *exit = reinterpret_cast<cs_temp_exit *>(packet);
+
+		sc_change_scene ptr;
+
+		ptr.size = sizeof(ptr);
+		ptr.type = ePacket_SceneChange;
+		ptr.Winner = exit->Winner;
+
+
+
+		for (auto &p : g_room[client[id].room_num]->m_room_id)
+		{
+			Sendpacket(p, &ptr);
+		}
+
+		g_room[client[id].room_num]->Release();
+
+		break;
+	}
 	default:
 		cout << "unknow packet : " << (int)packet[1] << endl;
 		break;
-	
+
 	}
 
-	
+
 }
 
 void Accept_thread()
@@ -888,7 +906,7 @@ void Accept_thread()
 			continue;
 		}
 
-		cout << "Player " << new_id << " Connected "<<"	"<<(int)client_addr.sin_port << endl;
+		cout << "Player " << new_id << " Connected " << "	" << (int)client_addr.sin_port << endl;
 
 		// 재활용 될 소켓이므로 초기화해주어야 한다.
 		client[new_id].vl_lock.lock();
@@ -898,12 +916,12 @@ void Accept_thread()
 		client[new_id].prev_packet_data = 0;
 		ZeroMemory(&client[new_id].recv_overlap, sizeof(client[new_id].recv_overlap));
 		client[new_id].recv_overlap.operation = OP_RECV;
-		client[new_id].recv_overlap.recv_buffer.buf = 
+		client[new_id].recv_overlap.recv_buffer.buf =
 			reinterpret_cast<CHAR *>(client[new_id].recv_overlap.socket_buff);
 		client[new_id].recv_overlap.recv_buffer.len = sizeof(client[new_id].recv_overlap.socket_buff);
 
-		client[new_id].player.SetAnimation(XMFLOAT3(0,0,0));
-		client[new_id].player.SetFireDirection(XMFLOAT3(0,0,0));
+		client[new_id].player.SetAnimation(XMFLOAT3(0, 0, 0));
+		client[new_id].player.SetFireDirection(XMFLOAT3(0, 0, 0));
 
 		client[new_id].player.setid(new_id);
 
@@ -913,7 +931,7 @@ void Accept_thread()
 		client[new_id].room_num = 0;
 		client[new_id].vl_lock.unlock();
 		//add_timer(new_id, 1000, OP_SYSTEM_TIMEER);
-		
+
 		CCharacterObject* pCharacter = new CCharacterObject();
 		COLLISION_MGR->m_vecCharacterContainer.push_back(pCharacter);
 		//입출력 포트와 클라이언트 연결
@@ -948,7 +966,7 @@ void Accept_thread()
 
 		new_id++;
 	}
-	
+
 }
 
 void worker_Thread()
@@ -961,7 +979,7 @@ void worker_Thread()
 
 	while (true)
 	{
-		bresult = GetQueuedCompletionStatus(g_hIocp, &io_size, &key, 
+		bresult = GetQueuedCompletionStatus(g_hIocp, &io_size, &key,
 			reinterpret_cast<LPWSAOVERLAPPED*>(&overlap), INFINITE);
 
 		if (false == bresult)
@@ -975,7 +993,7 @@ void worker_Thread()
 			Disconnected(key);
 			continue;
 		}
-		
+
 		if (overlap != NULL)
 		{
 			switch (overlap->operation)
@@ -996,9 +1014,9 @@ void worker_Thread()
 					//	client[key].recv_overlap.packet_size = pBuff[0];
 					//}
 					//int required = client[key].recv_overlap.packet_size - client[key].prev_packet_data;
-					
+
 					if (psize == 0) psize = pBuff[0];
-					if(io_size + pr_size >= psize)	//패킷완성	if (remained >= required)
+					if (io_size + pr_size >= psize)	//패킷완성	if (remained >= required)
 					{
 						unsigned char packet[MAX_PACKET_SIZE];
 						memcpy(packet, client[key].packet, pr_size);
@@ -1025,8 +1043,8 @@ void worker_Thread()
 				client[key].curr_packet_size = psize;
 				client[key].prev_packet_data = pr_size;
 				DWORD flags = 0;
-				WSARecv(client[key].sock, 
-					&client[key].recv_overlap.recv_buffer, 1, 
+				WSARecv(client[key].sock,
+					&client[key].recv_overlap.recv_buffer, 1,
 					NULL, &flags, &client[key].recv_overlap.original_overlap, NULL);
 
 				break;
@@ -1043,18 +1061,8 @@ void worker_Thread()
 				client[(int)key].vl_lock.lock();
 				client[(int)key].player.SetPlayerHp(100);
 				client[(int)key].player.SetPlayelife(false);
-
-				//cout << "Respond" << endl;
-
-				//if (client[(int)key].Red_Team)						//처음 위치로
-				//	client[(int)key].player.SetPosition(XMFLOAT3(60, 2, 12));
-				//else
-				//	client[(int)key].player.SetPosition(XMFLOAT3(270, 2, 230));
-
 				client[(int)key].player.setid(key);
-
 				client[(int)key].vl_lock.unlock();
-
 
 				//SendfullHp(key, (int)key);	//처음에 자기자신에게 보내고
 				SendRespond(key, (int)key);
@@ -1065,126 +1073,23 @@ void worker_Thread()
 						if (client[i].room_num == client[(int)key].room_num)
 						{
 							SendRespond(i, (int)key);
-							//SendTemp(i, (int)key);
-							//SendfullHp(i, (int)key);	//전체적으로 뿌린다.
-							SendPositionPacket(i, (int)key);
 
-							cout << "리스폰 ID: " << key << " 보내는 ID : " << i << endl; 
+							//SendPositionPacket(i, (int)key);
+							//cout << "리스폰 ID: " << key << " 보내는 ID : " << i << endl;
 						}
-						//add_timer((int)key, 1, OP_RECV);
+
 					}
 				}
 				delete overlap;
 				break;
-			//case OP_SYSTEM_KILL:
-			//{
-			//	int roomnum = client[(int)key].room_num;
-			//	g_room[roomnum]->lock.lock();
-			//	g_room[roomnum]->Killupdate(client[(int)key].Red_Team);
-			//	g_room[roomnum]->lock.unlock();
 
-			//	cout << "Kill" << endl;
-
-			//	if (g_room[roomnum]->m_BlueKill >= g_room[roomnum]->m_Goalkill)	// 블루팀 승리.
-			//	{
-			//		g_room[roomnum]->m_BlueKill = 50;	//50으로 만들고
-
-			//		for (auto &p : g_room[roomnum]->m_room_player)	//방을 없애준다.
-			//		{
-			//			cs_temp_exit temp;
-			//			temp.size = sizeof(temp);
-			//			temp.type = 14;
-			//			temp.Winner = 2;
-
-			//			Sendpacket(p->player.Getid(), &temp);
-			//		}
-
-			//		g_room[roomnum]->Release();
-			//	}
-			//	else if (g_room[roomnum]->m_RedKill >= g_room[roomnum]->m_Goalkill)	//레드팀이 승리
-			//	{
-			//		g_room[roomnum]->m_BlueKill = 50;	//100으로 만들고
-
-			//		for (auto &p : g_room[roomnum]->m_room_player)	//방을 없애준다.
-			//		{
-			//			cs_temp_exit temp;
-			//			temp.size = sizeof(temp);
-			//			temp.type = 14;
-			//			temp.Winner = 1;
-
-			//			Sendpacket(p->player.Getid(), &temp);
-			//		}
-
-			//		g_room[roomnum]->Release();
-			//	}
-			//	else //두개의 조건이 다 안맞으면 보내준다.
-			//	{
-			//	for (auto &p : g_room[roomnum]->m_room_player)
-			//		{
-			//			SendSystemPacket(p->player.Getid(), p->room_num);
-			//		}
-			//	}
-			//	delete overlap;
-			//	break;
-			//}
 			case OP_SYSTEM_TIMEER:
 			{
-
-				//static float Time = 600;
-				//--Time;
-				//client[(int)key].Starting_Time = Time;
-				//if (client[(int)key].starting == false)
-				//{
-
-				//	SendTimerpacket((int)key);
-				//	client[(int)key].starting = true;
-				//}
-
-				//cout << "Timer" << endl;
 				g_room[key]->lock.lock();
 				g_room[key]->update();
 				g_room[key]->lock.unlock();
 				SendTimerpacket((int)key);
 				add_timer((int)key, 10000, OP_SYSTEM_TIMEER);
-				delete overlap;
-				break;
-			}
-
-			case OP_OCCUPY_TIMER:	//점령시간 보낸다.
-			{
-
-				g_room[(int)key]->lock.lock();
-				g_room[(int)key]->m_Occupytimer++;
-				g_room[(int)key]->lock.unlock();
-				SC_Occupy_Timer packet;
-
-				packet.size = sizeof(SC_Starting_Timer);
-				packet.type = 17;
-				packet.Occupy_timer = g_room[(int)key]->m_Occupytimer;
-
-				if (g_room[(int)key]->m_room_id.size() != 0)	//
-				{
-					for (auto& p : g_room[(int)key]->m_room_id)
-						Sendpacket(p, (&packet));
-				}
-				if (g_room[(int)key]->m_Occupytimer >= 30)	//특정한팀이 30초 이상 점령했을시 게임 종료.
-				{
-					for (auto &p : g_room[(int)key]->m_room_id)
-					{
-						cs_temp_exit temp;
-						temp.size = sizeof(temp);
-						temp.type = 14;
-						temp.Winner = g_room[(int)key]->m_Occupy;
-
-						Sendpacket(p, &temp);
-					}
-
-					g_room[(int)key]->Release();
-				}
-				else
-				{
-					add_timer((int)key, 1000, OP_OCCUPY_TIMER);
-				}
 				delete overlap;
 				break;
 			}
@@ -1220,7 +1125,7 @@ bool CreateMap()
 		pObject->SetBoundingBox(boundingBox);
 		pObject->SetPosition(vecMapData[count].m_Position);
 		pObject->Rotate(vecMapData[count].m_Rotation);
-	
+
 		COLLISION_MGR->m_vecStaticMeshContainer.push_back(pObject);
 	}
 
@@ -1515,12 +1420,12 @@ int main(int argv, char* argc[])
 	vector<thread*> vpThread;
 
 	Initialize_server();
-	for (unsigned int i = 0; i <6 ; ++i)
+	for (unsigned int i = 0; i < 6; ++i)
 	{
 		vpThread.push_back(new thread{ worker_Thread });
 	}
 
-	thread pTimerThread { Timer_Thread };
+	thread pTimerThread{ Timer_Thread };
 	thread pAcceptThread{ Accept_thread };
 
 	pAcceptThread.join();

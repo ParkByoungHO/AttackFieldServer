@@ -6,8 +6,31 @@
 #define CS_HEAD_HIT		4
 #define CS_GAME_MODE	5
 #define CS_Login		6
-
 #define Dead_Reckoning	7
+
+enum PacketType
+{
+	ePacket_Update = 1,
+	ePacket_CreateOthderPlayer,
+	ePacket_MouseRotate,
+	ePacket_CollisionCheck,
+	ePacket_HP,
+	ePacket_KillUpdate,
+	ePacket_GameTimer,
+	ePacket_Respawn,
+	ePacket_OccupyTeam,
+	ePacket_DamageInfo,
+
+
+	ePacket_SuccessMyCharacter,
+	ePacket_SceneChange,
+	ePacket_LoginFail,
+	ePacket_Disconnect,
+};
+
+
+
+
 
 #pragma pack(push, 1)
 
@@ -102,6 +125,14 @@ struct cs_temp_exit
 	BYTE Winner;
 };
 
+struct sc_change_scene
+{
+	BYTE size;
+	BYTE type;
+	BYTE Winner;
+};
+
+
 
 struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다. 
 {
@@ -116,7 +147,9 @@ struct sc_packet_pos	//서버에서 처리된 값을 클라에게 보낸다.
 	float z;
 
 	XMFLOAT3 Animation;
+	XMFLOAT3 FireDirection;
 	BYTE Hp;
+
 };
 
 struct sc_rotate_vector	//처리된 lookvector를 보낸다.
